@@ -1,4 +1,4 @@
-package com.austin.module.account.controller;
+package com.austin.module.account.controller.response;
 
 import com.austin.module.account.domain.AccountStatus;
 import com.austin.module.account.domain.UserAccount;

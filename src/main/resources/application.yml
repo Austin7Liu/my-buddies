@@ -1,6 +1,8 @@
 spring:
   application:
     name: my-buddies
+  profiles:
+    default: dev
   jackson:
     time-zone: Asia/Shanghai
     date-format: yyyy-MM-dd HH:mm:ss
@@ -34,6 +36,9 @@ app:
     lock-duration: 5m
   account:
     cancellation-cooling-off-period: 7d
+  identity:
+    fingerprint-secret: ${IDENTITY_FINGERPRINT_SECRET:}
+    minimum-age: 18
   jwt:
     issuer: ${JWT_ISSUER:my-buddies}
     secret: ${JWT_SECRET:}

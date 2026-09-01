@@ -1,4 +1,4 @@
-package com.austin.module.auth.controller;
+package com.austin.module.auth.controller.request;
 
 import jakarta.validation.constraints.NotBlank;
 

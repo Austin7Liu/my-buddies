@@ -3,7 +3,7 @@ spring:
     driver-class-name: com.mysql.cj.jdbc.Driver
     url: ${MYSQL_URL:jdbc:mysql://localhost:3306/my_buddies?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai}
     username: ${MYSQL_USERNAME:root}
-    password: ${MYSQL_PASSWORD:}
+    password: ${MYSQL_PASSWORD:Ljb456799}
     hikari:
       maximum-pool-size: ${MYSQL_MAX_POOL_SIZE:10}
       minimum-idle: ${MYSQL_MIN_IDLE:2}
@@ -22,5 +22,7 @@ logging:
     com.baomidou.mybatisplus: info
 
 app:
+  identity:
+    fingerprint-secret: ${IDENTITY_FINGERPRINT_SECRET:my-buddies-dev-identity-fingerprint-2026-change-me}
   jwt:
-    secret: ${JWT_SECRET:my-buddies-development-secret-change-me}
+    secret: ${JWT_SECRET:my-buddies-dev-jwt-2026-A7k9Q2m4X8p6N3v5R1s7T0w2}

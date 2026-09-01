@@ -10,5 +10,7 @@ spring:
         enabled: false
 
 app:
+  identity:
+    fingerprint-secret: my-buddies-test-identity-fingerprint-secret
   jwt:
     secret: my-buddies-test-secret-at-least-32-bytes

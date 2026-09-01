@@ -1,6 +1,6 @@
-package com.austin.module.auth.controller;
+package com.austin.module.auth.controller.response;
 
-import com.austin.module.account.controller.UserAccountResponse;
+import com.austin.module.account.controller.response.UserAccountResponse;
 import com.austin.module.auth.service.AuthService.AuthResult;
 
 public record LoginResponse(UserAccountResponse account, TokenResponse tokens) {

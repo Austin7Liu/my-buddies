@@ -1,4 +1,4 @@
-package com.austin.module.auth.controller;
+package com.austin.module.auth.controller.response;
 
 import com.austin.module.auth.token.TokenPair;
 
