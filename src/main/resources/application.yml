@@ -1,0 +1,32 @@
+spring:
+  application:
+    name: my-partner
+  profiles:
+    default: dev
+  jackson:
+    time-zone: Asia/Shanghai
+    date-format: yyyy-MM-dd HH:mm:ss
+    default-property-inclusion: non_null
+
+server:
+  port: ${SERVER_PORT:8080}
+  shutdown: graceful
+
+mybatis-plus:
+  mapper-locations: classpath*:/mapper/**/*.xml
+  configuration:
+    map-underscore-to-camel-case: true
+    cache-enabled: false
+  global-config:
+    banner: false
+    db-config:
+      id-type: assign_id
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+
+app:
+  jwt:
+    issuer: ${JWT_ISSUER:my-partner}
+    secret: ${JWT_SECRET:}
+    access-token-expiration: ${JWT_ACCESS_TOKEN_EXPIRATION:30m}
+    refresh-token-expiration: ${JWT_REFRESH_TOKEN_EXPIRATION:7d}
