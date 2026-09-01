@@ -28,7 +28,7 @@ public class JacksonConfig {
     @Bean
     public JsonMapperBuilderCustomizer jsonMapperBuilderCustomizer() {
         return builder -> {
-            SimpleModule javaTimeFormatModule = new SimpleModule("my-partner-java-time-format");
+            SimpleModule javaTimeFormatModule = new SimpleModule("my-buddies-java-time-format");
             javaTimeFormatModule.addSerializer(LocalDate.class, new LocalDateSerializer(DATE_FORMATTER));
             javaTimeFormatModule.addDeserializer(LocalDate.class, new LocalDateDeserializer(DATE_FORMATTER));
             javaTimeFormatModule.addSerializer(LocalTime.class, new LocalTimeSerializer(TIME_FORMATTER));

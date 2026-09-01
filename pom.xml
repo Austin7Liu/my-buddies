@@ -9,9 +9,9 @@
         <relativePath/>
     </parent>
     <groupId>com.austin</groupId>
-    <artifactId>my-partner</artifactId>
+    <artifactId>my-buddies</artifactId>
     <version>0.0.1-SNAPSHOT</version>
-    <name>my-partner</name>
+    <name>my-buddies</name>
     <description>Trusted offline activity partner platform</description>
 
     <properties>
@@ -35,6 +35,8 @@
             <version>${mybatis-plus.version}</version>
         </dependency>
         <dependency><groupId>com.mysql</groupId><artifactId>mysql-connector-j</artifactId><scope>runtime</scope></dependency>
+        <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-flyway</artifactId></dependency>
+        <dependency><groupId>org.flywaydb</groupId><artifactId>flyway-mysql</artifactId><scope>runtime</scope></dependency>
 
         <dependency><groupId>io.jsonwebtoken</groupId><artifactId>jjwt-api</artifactId><version>${jjwt.version}</version></dependency>
         <dependency><groupId>io.jsonwebtoken</groupId><artifactId>jjwt-impl</artifactId><version>${jjwt.version}</version><scope>runtime</scope></dependency>
