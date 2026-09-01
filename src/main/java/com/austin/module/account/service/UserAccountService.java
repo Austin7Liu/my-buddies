@@ -6,6 +6,8 @@ public interface UserAccountService {
 
     UserAccount create(String phone);
 
+    UserAccount findOrCreateByPhone(String phone);
+
     UserAccount getById(long accountId);
 
     UserAccount requestCancellation(long accountId);

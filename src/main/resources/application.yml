@@ -1,8 +1,6 @@
 spring:
   application:
     name: my-buddies
-  profiles:
-    default: dev
   jackson:
     time-zone: Asia/Shanghai
     date-format: yyyy-MM-dd HH:mm:ss
@@ -29,6 +27,11 @@ mybatis-plus:
       logic-not-delete-value: 0
 
 app:
+  sms-code:
+    expiration: 5m
+    resend-cooldown: 60s
+    max-failed-attempts: 5
+    lock-duration: 5m
   account:
     cancellation-cooling-off-period: 7d
   jwt:

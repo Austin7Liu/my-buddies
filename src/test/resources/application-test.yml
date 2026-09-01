@@ -8,3 +8,7 @@ spring:
     redis:
       repositories:
         enabled: false
+
+app:
+  jwt:
+    secret: my-buddies-test-secret-at-least-32-bytes

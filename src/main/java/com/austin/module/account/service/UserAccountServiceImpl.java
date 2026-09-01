@@ -7,6 +7,7 @@ import com.austin.module.account.domain.UserAccount;
 import com.austin.module.account.config.AccountProperties;
 import com.austin.module.account.mapper.UserAccountMapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
@@ -42,6 +43,27 @@ public class UserAccountServiceImpl implements UserAccountService {
     }
 
     @Override
+    @Transactional
+    public UserAccount findOrCreateByPhone(String phone) {
+        String normalizedPhone = phone.trim();
+        UserAccount existing = userAccountMapper.selectOne(new LambdaQueryWrapper<UserAccount>()
+                .eq(UserAccount::getPhone, normalizedPhone));
+        if (existing != null) {
+            return existing;
+        }
+        try {
+            return create(normalizedPhone);
+        } catch (ConflictException exception) {
+            UserAccount concurrentlyCreated = userAccountMapper.selectOne(new LambdaQueryWrapper<UserAccount>()
+                    .eq(UserAccount::getPhone, normalizedPhone));
+            if (concurrentlyCreated != null) {
+                return concurrentlyCreated;
+            }
+            throw exception;
+        }
+    }
+
+    @Override
     @Transactional(readOnly = true)
     public UserAccount getById(long accountId) {
         UserAccount account = userAccountMapper.selectById(accountId);
@@ -72,6 +94,9 @@ public class UserAccountServiceImpl implements UserAccountService {
         return getById(accountId);
     }
 
+    /**
+     * 用户在 7 天注销冷静期内撤销注销申请
+     */
     @Override
     @Transactional
     public UserAccount revokeCancellation(long accountId) {
