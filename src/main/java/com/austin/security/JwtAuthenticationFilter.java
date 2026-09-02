@@ -7,12 +7,14 @@ import com.austin.module.auth.token.TokenType;
 import com.austin.module.account.domain.AccountStatus;
 import com.austin.module.account.domain.UserAccount;
 import com.austin.module.account.service.UserAccountService;
+import com.austin.module.admin.service.AdminRoleService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.List;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -27,6 +29,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final JwtService jwtService;
     private final TokenStore tokenStore;
     private final UserAccountService userAccountService;
+    private final AdminRoleService adminRoleService;
     private final RestAuthenticationEntryPoint authenticationEntryPoint;
 
     @Override
@@ -48,9 +51,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     || account.getAccountStatus() == AccountStatus.CANCELLED) {
                 throw new IllegalArgumentException("账户不可用");
             }
+            List<SimpleGrantedAuthority> authorities = adminRoleService.findEffectiveRoles(claims.accountId())
+                    .stream()
+                    .map(role -> new SimpleGrantedAuthority(role.authority()))
+                    .toList();
             UsernamePasswordAuthenticationToken authentication =
                     new UsernamePasswordAuthenticationToken(
-                            Long.toString(claims.accountId()), null, List.of());
+                            Long.toString(claims.accountId()), null, authorities);
             SecurityContextHolder.getContext().setAuthentication(authentication);
         } catch (RuntimeException exception) {
             SecurityContextHolder.clearContext();

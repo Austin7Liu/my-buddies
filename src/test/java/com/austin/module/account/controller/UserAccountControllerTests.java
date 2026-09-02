@@ -53,6 +53,14 @@ class UserAccountControllerTests {
     }
 
     @Test
+    void missingJsonContentTypeReturnsUnsupportedMediaTypeInsteadOfUnauthorized() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/sms-codes")
+                        .content("{\"phone\":\"13900139000\"}"))
+                .andExpect(status().isUnsupportedMediaType())
+                .andExpect(jsonPath("$.error.code").value("UNSUPPORTED_MEDIA_TYPE"));
+    }
+
+    @Test
     void rejectsUnauthenticatedAccountAccess() throws Exception {
         mockMvc.perform(get("/api/v1/accounts/1"))
                 .andExpect(status().isUnauthorized());
