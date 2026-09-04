@@ -1,4 +1,4 @@
-package com.austin.module.catalog.domain;
+package com.austin.module.circle.domain;
 
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
@@ -14,19 +14,23 @@ import lombok.Setter;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@TableName("catalog_admin_audit_log")
-public class CatalogAdminAuditLog {
+@TableName("circle_audit_log")
+public class CircleAuditLog {
 
     @TableId
     private Long id;
 
+    private Long circleId;
+
     private Long operatorAccountId;
 
-    private CatalogEntityType entityType;
+    private CircleAuditAction action;
 
-    private Long entityId;
+    private CircleStatus fromStatus;
 
-    private CatalogAuditAction action;
+    private CircleStatus toStatus;
+
+    private String reason;
 
     private LocalDateTime occurredAt;
 }

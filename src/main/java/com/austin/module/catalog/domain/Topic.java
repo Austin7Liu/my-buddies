@@ -10,18 +10,33 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-@Getter @Setter @Builder @NoArgsConstructor @AllArgsConstructor
+@Getter
+@Setter
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 @TableName("topic")
 public class Topic {
-    @TableId private Long id;
+
+    @TableId
+    private Long id;
+
     private Long categoryId;
+
     private String code;
+
     private String name;
+
     private String description;
+
     private Integer sortOrder;
+
     private Boolean enabled;
-    @Version private Integer version;
+
+    @Version
+    private Integer version;
+
     private LocalDateTime createdAt;
+
     private LocalDateTime updatedAt;
 }
-

@@ -8,7 +8,9 @@ import org.springframework.validation.annotation.Validated;
 @Validated
 @ConfigurationProperties(prefix = "app.identity")
 public record IdentityProperties(
-        @NotBlank @Size(min = 32, message = "实名主体指纹密钥至少需要 32 个字符") String fingerprintSecret,
+        @NotBlank
+        @Size(min = 32, message = "实名主体指纹密钥至少需要 32 个字符")
+        String fingerprintSecret,
         int minimumAge) {
 
     public IdentityProperties {
@@ -17,4 +19,3 @@ public record IdentityProperties(
         }
     }
 }
-

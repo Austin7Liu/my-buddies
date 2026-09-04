@@ -2,7 +2,7 @@
 
 > 文档用途：项目开发记录、技术复盘、面试准备。
 > 更新原则：每完成一个功能，同步更新“实现状态、数据模型、请求链路、关键设计、测试和面试题”。
-> 当前版本：2026-09-02，数据库 Flyway V4。
+> 当前版本：2026-09-02，数据库 Flyway V5。
 
 ## 1. 项目介绍
 
@@ -49,7 +49,8 @@ com.austin
     ├── auth            短信登录和 Token 会话
     ├── identity        实名认证
     ├── admin           后台角色管理
-    └── catalog         Category / Topic
+    ├── catalog         Category / Topic
+    └── circle          具体兴趣社区及审核
 ```
 
 每个业务模块内部按职责划分：
@@ -132,6 +133,7 @@ Flyway 迁移历史：
 | V2 | `identity_verification` |
 | V3 | 后台 Role、账户角色、角色审计 |
 | V4 | Category、Topic、目录审计和默认分类 |
+| V5 | Circle、Circle 审核状态和操作审计 |
 
 原则：已经执行的迁移文件不能直接修改；数据库变更必须新增更高版本迁移。
 
@@ -427,7 +429,114 @@ GET /api/v1/topics/{topicId}
 
 V4 预置10个一级分类，Topic 暂不预置。
 
-## 10. 测试策略
+## 10. Circle 社区模块
+
+### 10.1 业务定位
+
+Circle 是某个 Topic 下更具体的社区。例如：
+
+```text
+运动 Category
+└── 网球 Topic
+    ├── 杭州滨江网球 Circle
+    └── 上海周末网球 Circle
+```
+
+每个 Circle 必须属于一个 Topic。数据库唯一约束 `UNIQUE(topic_id, name)` 保证同一 Topic 下不能出现同名 Circle；不同 Topic 可以使用相同名称。
+
+### 10.2 创建资格
+
+创建 Circle 不是普通登录用户即可执行。Service 会依次校验：
+
+```text
+账户状态为 ACTIVE
+→ 已完成实名认证
+→ 根据 birthDate 动态计算年满18岁
+→ Topic 已启用
+→ Topic 所属 Category 已启用
+```
+
+年龄判断抽到 `AgeEligibilityPolicy`，后续 Meetup、私聊等模块可以复用同一规则。
+
+### 10.3 审核状态机
+
+```text
+PENDING_REVIEW → APPROVED → DISABLED
+       │                         │
+       └→ REJECTED → 修改重提    └→ APPROVED
+                         ↓
+                  PENDING_REVIEW
+```
+
+- 新 Circle 只能是 `PENDING_REVIEW`，不能由创建者直接公开。
+- `CONTENT_ADMIN` 可以通过或驳回。
+- 驳回必须填写原因。
+- 创建者只能修改待审核或已驳回的 Circle。
+- 修改已驳回 Circle 会清除原审核结果并重新进入待审核。
+- 已通过 Circle 只能由管理员停用，停用后可以恢复。
+- 普通公开查询只返回 `APPROVED`。
+
+数据库 CHECK 约束同时限制状态和审核字段组合。例如 `REJECTED` 必须具有审核人、审核时间和驳回原因。
+
+### 10.4 为什么更新 null 需要特殊处理
+
+MyBatis-Plus 默认不会在 `updateById` 中更新值为 null 的字段。Circle 被驳回后重新提交时，需要把：
+
+```text
+rejectionReason
+reviewedBy
+reviewedAt
+```
+
+真正清空。实体通过：
+
+```java
+@TableField(updateStrategy = FieldStrategy.ALWAYS)
+```
+
+明确允许把这些字段更新为 SQL NULL。`description` 和 `district` 也使用同样策略，使用户能够主动清空可选内容。这个问题由状态机测试实际发现。
+
+### 10.5 API 与权限
+
+游客可以分页查看已通过的 Circle：
+
+```text
+GET /api/v1/topics/{topicId}/circles?page=1&size=20
+GET /api/v1/circles/{circleId}
+```
+
+登录用户可以查看自己提交的全部状态；实名成年用户可以创建和修改：
+
+```text
+GET  /api/v1/circles/mine
+POST /api/v1/circles
+PUT  /api/v1/circles/{circleId}
+```
+
+内容管理员接口：
+
+```text
+GET   /api/v1/admin/circles?status=PENDING_REVIEW
+POST  /api/v1/admin/circles/{circleId}/approve
+POST  /api/v1/admin/circles/{circleId}/reject
+PATCH /api/v1/admin/circles/{circleId}/enabled?enabled=false
+```
+
+创建、修改、重提、通过、驳回、停用和恢复都会写入 `circle_audit_log`。
+
+### 10.6 分页
+
+Circle 数量会持续增长，因此从第一版开始使用 MyBatis-Plus `Page`：
+
+```text
+page 默认 1
+size 默认 20
+size 最大 100
+```
+
+统一返回 `PageResponse`，包含 records、page、size、total 和 pages。
+
+## 11. 测试策略
 
 测试分层：
 
@@ -440,10 +549,10 @@ V4 预置10个一级分类，Topic 暂不预置。
 当前结果：
 
 ```text
-Tests run: 32
+Tests run: 36
 Failures: 0
 Errors: 0
-Flyway: V4
+Flyway: V5
 ```
 
 重要测试场景包括：
@@ -456,9 +565,13 @@ Flyway: V4
 - 最后一个超级管理员不能被撤销。
 - 普通用户不能调用内容管理接口。
 - 停用分类对游客隐藏、对管理员可见。
+- Circle 审核前不可公开、审核通过后可公开。
+- 同一 Topic 下 Circle 名称不能重复。
+- 未实名用户不能创建 Circle。
+- 被驳回 Circle 修改后重新进入待审核。
 - 缺少 JSON Content-Type 返回 415，而不是误报 401。
 
-## 11. 本地运行
+## 12. 本地运行
 
 依赖：
 
@@ -483,10 +596,10 @@ Redis
 
 生产环境必须通过环境变量覆盖数据库密码、JWT 密钥和实名指纹密钥。技术文档、Git 和日志中不能保存真实密钥。
 
-## 12. 当前未实现
+## 13. 当前未实现
 
 - 用户公开资料和官方头像；
-- Circle、Post、Comment；
+- Post、Comment；
 - Meetup 和参与者状态机；
 - 定位签到；
 - 履约、评价和信用；
@@ -495,7 +608,7 @@ Redis
 - 真实短信和真实实名认证厂商；
 - 管理后台前端。
 
-## 13. 面试高频问题
+## 14. 面试高频问题
 
 ### 为什么 JWT 还要 Redis？
 
@@ -521,7 +634,15 @@ V1 明确只有一级分类。提前加入无限树结构会增加查询、排�
 
 它们会被未来的内容和活动引用。删除会破坏历史数据，停用可以阻止新使用，同时保留历史关系。
 
-## 14. 后续每个功能的文档同步模板
+### Circle 名称唯一为什么必须由数据库保证？
+
+业务层先查询仍然存在并发窗口：两个请求可能同时查到“不存在”，然后同时插入。`UNIQUE(topic_id, name)` 是最终一致性边界，Service 捕获 `DuplicateKeyException` 后返回 409。数据库约束不能被普通代码路径绕过。
+
+### 为什么 Circle 创建后不能直接公开？
+
+用户创建的社区名称和描述可能偏离平台定位，甚至用于交友、赌博或引流。先进入审核状态能把内容治理放在公开传播之前，同时保留驳回和重新提交的完整轨迹。
+
+## 15. 后续每个功能的文档同步模板
 
 每次实现新功能后，在本文档增加或更新：
 

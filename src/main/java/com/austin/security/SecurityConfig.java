@@ -29,7 +29,8 @@ public class SecurityConfig {
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers(HttpMethod.GET,
                                 "/api/v1/categories/**",
-                                "/api/v1/topics/**")
+                                "/api/v1/topics/**",
+                                "/api/v1/circles/**")
                         .permitAll()
                         .requestMatchers(
                                 "/api/v1/auth/sms-codes",
