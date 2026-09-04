@@ -2,7 +2,7 @@
 
 > 文档用途：项目开发记录、技术复盘、面试准备。
 > 更新原则：每完成一个功能，同步更新“实现状态、数据模型、请求链路、关键设计、测试和面试题”。
-> 当前版本：2026-09-02，数据库 Flyway V5。
+> 当前版本：2026-09-04，数据库 Flyway V6。
 
 ## 1. 项目介绍
 
@@ -12,11 +12,11 @@ My Buddies 是一个面向真实线下活动的找搭子平台。项目不把重
 手机号认证 → 实名认证 → 活动约定 → 定位签到 → 履约记录 → 评价与信用
 ```
 
-目前已实现的是底层账户与内容目录能力，Meetup、帖子、评论、签到等核心业务尚未开发。
+目前已经实现账户认证、内容目录、Circle 和纯文本 Post 的发布审核闭环；Meetup、评论、签到等核心业务尚未开发。
 
 面试时可以这样介绍：
 
-> 这是一个基于 Spring Boot 的模块化单体项目。我先完成了手机号验证码登录、JWT 会话、实名认证抽象、后台 RBAC，以及一级分类和话题目录。设计重点是状态边界、并发安全、敏感数据保护和可替换的外部服务，而不是简单堆叠 CRUD。
+> 这是一个基于 Spring Boot 的模块化单体项目。我已经完成手机号验证码登录、JWT 会话、实名认证抽象、后台 RBAC、内容目录、Circle 和 Post 审核闭环。设计重点是状态边界、并发安全、敏感数据保护和内容治理，而不是简单堆叠 CRUD。
 
 ## 2. 技术栈
 
@@ -50,7 +50,8 @@ com.austin
     ├── identity        实名认证
     ├── admin           后台角色管理
     ├── catalog         Category / Topic
-    └── circle          具体兴趣社区及审核
+    ├── circle          具体兴趣社区及审核
+    └── post            纯文本帖子及内容审核
 ```
 
 每个业务模块内部按职责划分：
@@ -134,6 +135,7 @@ Flyway 迁移历史：
 | V3 | 后台 Role、账户角色、角色审计 |
 | V4 | Category、Topic、目录审计和默认分类 |
 | V5 | Circle、Circle 审核状态和操作审计 |
+| V6 | Post、Topic/Circle 关联、内容审核和操作审计 |
 
 原则：已经执行的迁移文件不能直接修改；数据库变更必须新增更高版本迁移。
 
@@ -536,7 +538,95 @@ size 最大 100
 
 统一返回 `PageResponse`，包含 records、page、size、total 和 pages。
 
-## 11. 测试策略
+## 11. Post 帖子模块
+
+### 11.1 V1 业务边界
+
+V1 只支持纯文本帖子，正文最长 2000 个字符；不支持图片、视频、文件、活动卡片、地点卡片和评论。实名、成年且账户状态为 `ACTIVE` 的用户才能发帖。
+
+Post 有三种合法关联形式：
+
+```text
+首页普通帖：topic_id = NULL，circle_id = NULL
+Topic 帖：  topic_id != NULL，circle_id = NULL
+Circle 帖： topic_id != NULL，circle_id != NULL
+```
+
+Topic 页面或用户在前端选择 `#Topic` 时，由前端传递真实 `topicId`。Circle 页面只需要传 `circleId`，后端读取 `Circle.topicId` 自动补充 Post 的 `topicId`；如果请求同时传入的两个 ID 不匹配，返回 409。这样不信任前端提供的 Circle 所属关系，又能直接按 `post.topic_id` 高效聚合 Topic 及其所有 Circle 的帖子。
+
+V1 不解析任意文本来创建关联，也不自动创建 Topic。例如后端没有“马术”时，正文中的 `#马术` 只是普通文本，帖子仍可作为无关联帖子提交。Circle 只能通过 `circleId` 关联，不支持通过 `#Circle` 绑定。
+
+### 11.2 数据模型与状态机
+
+V6 新增 `post` 和 `post_audit_log`。`post` 保存作者、可选 Topic/Circle、正文、审核状态、审核结果、删除时间和乐观锁版本；审计表保存提交、修改、重提、通过、驳回、删除、下架和恢复动作。
+
+数据库 CHECK 保证 `circle_id` 非空时 `topic_id` 也必须非空。跨表规则 `post.topic_id = circle.topic_id` 无法由普通 CHECK 表达，因此由 Service 查询 Circle 后维护，并通过集成测试保护。
+
+```text
+创建 → PENDING_REVIEW → PUBLISHED → OFFLINE → PUBLISHED
+           │                 │
+           └→ REJECTED       └→ DELETED
+                  │
+                  └→ 编辑重提 → PENDING_REVIEW
+```
+
+- 新帖子必须先审核，只有 `PUBLISHED` 对公众可见。
+- 已发布帖子被作者编辑后重新进入待审核，防止通过审核后替换成违规内容。
+- V1 编辑只允许修改正文，不修改 Topic/Circle 归属。
+- 作者删除使用 `DELETED`，管理员违规下架使用 `OFFLINE`，两者都不是物理删除。
+- 驳回和下架必须填写原因；管理员可以恢复已下架帖子。
+- `version` 乐观锁防止作者编辑与管理员审核互相覆盖，更新影响行数不是 1 时返回 409。
+
+### 11.3 查询与关联资源可见性
+
+公开查询除要求 Post 为 `PUBLISHED` 外，还动态检查关联资源：Topic 和 Category 必须启用，Circle 必须为 `APPROVED`。Circle 被停用时不批量修改帖子状态，但关联帖子暂时不再公开；Circle 恢复后帖子可重新展示。
+
+```text
+GET /api/v1/posts
+GET /api/v1/posts/{postId}
+GET /api/v1/topics/{topicId}/posts
+GET /api/v1/circles/{circleId}/posts
+```
+
+Topic 信息流通过 `post.topic_id` 查询，因此同时包含直接发布到 Topic 的帖子和该 Topic 下 Circle 的帖子。Circle 信息流只查询对应 `circle_id`。
+
+### 11.4 发布、编辑和内容管理 API
+
+登录用户可以查询自己的全部状态；符合资格的作者可以发布、编辑和删除自己的帖子：
+
+```text
+GET    /api/v1/posts/mine?status=PENDING_REVIEW
+POST   /api/v1/posts
+PUT    /api/v1/posts/{postId}
+DELETE /api/v1/posts/{postId}
+```
+
+`CONTENT_ADMIN` 负责人工审核：
+
+```text
+GET  /api/v1/admin/posts?status=PENDING_REVIEW
+POST /api/v1/admin/posts/{postId}/approve
+POST /api/v1/admin/posts/{postId}/reject
+POST /api/v1/admin/posts/{postId}/offline
+POST /api/v1/admin/posts/{postId}/restore
+```
+
+发布 Circle 帖子的请求示例：
+
+```json
+{
+  "content": "周六下午滨江体育馆约球。",
+  "circleId": 2001
+}
+```
+
+后端不需要也不信任前端重复填写 Circle 的 Topic。如果前端确实同时传递 `topicId`，Service 会校验它是否与 Circle 一致。
+
+### 11.5 当前内容审核限制
+
+当前完成的是人工审核状态机和后台操作审计，尚未接入关键词规则、内容安全厂商和用户举报。后续应把自动审核抽象成可替换 Provider，与人工审核组合，而不是把厂商 SDK 写进 Post Service。
+
+## 12. 测试策略
 
 测试分层：
 
@@ -549,10 +639,10 @@ size 最大 100
 当前结果：
 
 ```text
-Tests run: 36
+Tests run: 43
 Failures: 0
 Errors: 0
-Flyway: V5
+Flyway: V6
 ```
 
 重要测试场景包括：
@@ -569,9 +659,17 @@ Flyway: V5
 - 同一 Topic 下 Circle 名称不能重复。
 - 未实名用户不能创建 Circle。
 - 被驳回 Circle 修改后重新进入待审核。
+- 普通帖子不关联 Topic 和 Circle，未知 `#Topic` 只保留为正文。
+- Topic 帖使用前端选择的 Topic ID。
+- Circle 帖由后端自动补充 Circle 所属 Topic。
+- Circle 与 Topic 不匹配时返回 409。
+- 未实名用户不能发布帖子。
+- 帖子审核前不可公开、审核通过后可公开。
+- 已发布帖子编辑后重新进入待审核。
+- 作者删除和管理员下架使用不同状态并写入审计日志。
 - 缺少 JSON Content-Type 返回 415，而不是误报 401。
 
-## 12. 本地运行
+## 13. 本地运行
 
 依赖：
 
@@ -596,19 +694,19 @@ Redis
 
 生产环境必须通过环境变量覆盖数据库密码、JWT 密钥和实名指纹密钥。技术文档、Git 和日志中不能保存真实密钥。
 
-## 13. 当前未实现
+## 14. 当前未实现
 
 - 用户公开资料和官方头像；
-- Post、Comment；
+- Comment；
 - Meetup 和参与者状态机；
 - 定位签到；
 - 履约、评价和信用；
 - 风险限制、举报和处罚；
-- 内容审核任务；
+- 自动内容规则、第三方内容安全服务和用户举报；
 - 真实短信和真实实名认证厂商；
 - 管理后台前端。
 
-## 14. 面试高频问题
+## 15. 面试高频问题
 
 ### 为什么 JWT 还要 Redis？
 
@@ -642,7 +740,19 @@ V1 明确只有一级分类。提前加入无限树结构会增加查询、排�
 
 用户创建的社区名称和描述可能偏离平台定位，甚至用于交友、赌博或引流。先进入审核状态能把内容治理放在公开传播之前，同时保留驳回和重新提交的完整轨迹。
 
-## 15. 后续每个功能的文档同步模板
+### 为什么 Circle 帖子同时保存 topicId 和 circleId？
+
+Circle 已经能间接确定 Topic，但冗余保存 `topic_id` 可以直接查询一个 Topic 及其全部 Circle 的帖子，避免每次连接 Circle。为防止两个字段不一致，前端只需传 `circleId`，后端以 `Circle.topicId` 补全；数据库 CHECK 保证 Circle 帖一定有 Topic，跨表相等关系由 Service 和测试保证。
+
+### 为什么已发布帖子编辑后要重新审核？
+
+如果编辑后仍直接公开，用户可以先提交正常内容通过审核，再替换成违规内容。V1 将编辑后的帖子重新设为 `PENDING_REVIEW` 并暂时隐藏。以后如果要保持旧内容可见，可以引入独立的 Post Revision 表审核新版本。
+
+### 为什么删除和下架不能共用一个状态？
+
+删除表达作者意愿，下架表达平台治理结果。分开后可以准确控制恢复权限、展示审核原因、统计违规行为并保留后台审计证据。
+
+## 16. 后续每个功能的文档同步模板
 
 每次实现新功能后，在本文档增加或更新：
 

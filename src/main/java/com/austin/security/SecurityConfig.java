@@ -30,7 +30,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET,
                                 "/api/v1/categories/**",
                                 "/api/v1/topics/**",
-                                "/api/v1/circles/**")
+                                "/api/v1/circles/**",
+                                "/api/v1/posts/**")
                         .permitAll()
                         .requestMatchers(
                                 "/api/v1/auth/sms-codes",
