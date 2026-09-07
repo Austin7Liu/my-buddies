@@ -6,6 +6,7 @@ import org.springframework.http.HttpMethod;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
@@ -20,9 +21,9 @@ public class SecurityConfig {
     private final RestAuthenticationEntryPoint authenticationEntryPoint;
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) {
         return http
-                .csrf(csrf -> csrf.disable())
+                .csrf(AbstractHttpConfigurer::disable)
                 .cors(Customizer.withDefaults())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .exceptionHandling(exceptions -> exceptions.authenticationEntryPoint(authenticationEntryPoint))
@@ -31,7 +32,8 @@ public class SecurityConfig {
                                 "/api/v1/categories/**",
                                 "/api/v1/topics/**",
                                 "/api/v1/circles/**",
-                                "/api/v1/posts/**")
+                                "/api/v1/posts/**",
+                                "/api/v1/meetups/**")
                         .permitAll()
                         .requestMatchers(
                                 "/api/v1/auth/sms-codes",
