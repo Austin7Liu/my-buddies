@@ -37,7 +37,8 @@ public class AdminMeetupController {
             @RequestParam(defaultValue = "1") @Min(1) long page,
             @RequestParam(defaultValue = "20") @Min(1) @Max(100) long size) {
         return ApiResponse.success(PageResponse.from(meetupService.listForAdmin(status, page, size),
-                meetup -> MeetupResponse.from(meetup, meetupService.acceptedCount(meetup.getId()), false)));
+                meetup -> MeetupResponse.from(meetup, meetupService.findOnlineDetail(meetup.getId()),
+                        meetupService.acceptedCount(meetup.getId()), false)));
     }
 
     @PostMapping("/{meetupId}/terminate")
@@ -46,6 +47,7 @@ public class AdminMeetupController {
             @PathVariable @Positive long meetupId,
             @Valid @RequestBody ReasonRequest request) {
         var meetup = meetupService.terminate(Long.parseLong(authentication.getName()), meetupId, request.reason());
-        return ApiResponse.success(MeetupResponse.from(meetup, meetupService.acceptedCount(meetupId), false));
+        return ApiResponse.success(MeetupResponse.from(meetup, meetupService.findOnlineDetail(meetupId),
+                meetupService.acceptedCount(meetupId), false));
     }
 }

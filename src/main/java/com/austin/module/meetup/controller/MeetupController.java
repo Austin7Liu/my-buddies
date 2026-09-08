@@ -70,7 +70,7 @@ public class MeetupController {
             @PathVariable @Positive long meetupId) {
         Long viewerId = authentication == null ? null : accountId(authentication);
         Meetup meetup = meetupService.getVisible(viewerId, meetupId);
-        return ApiResponse.success(response(meetup, meetupService.canSeeExactAddress(viewerId, meetup)));
+        return ApiResponse.success(response(meetup, meetupService.canSeePrivateDetails(viewerId, meetup)));
     }
 
     @GetMapping("/meetups/mine")
@@ -79,8 +79,10 @@ public class MeetupController {
             Authentication authentication,
             @RequestParam(defaultValue = "1") @Min(1) long page,
             @RequestParam(defaultValue = "20") @Min(1) @Max(100) long size) {
+        long viewerId = accountId(authentication);
         return ApiResponse.success(PageResponse.from(
-                meetupService.listMine(accountId(authentication), page, size), meetup -> response(meetup, true)));
+                meetupService.listMine(viewerId, page, size),
+                meetup -> response(meetup, meetupService.canSeePrivateDetails(viewerId, meetup))));
     }
 
     @PostMapping("/meetups")
@@ -174,20 +176,23 @@ public class MeetupController {
     }
 
     private MeetupResponse response(Meetup meetup, boolean exposeAddress) {
-        return MeetupResponse.from(meetup, meetupService.acceptedCount(meetup.getId()), exposeAddress);
+        return MeetupResponse.from(meetup, meetupService.findOnlineDetail(meetup.getId()),
+                meetupService.acceptedCount(meetup.getId()), exposeAddress);
     }
 
     private MeetupCommand command(CreateMeetupRequest request) {
         return new MeetupCommand(request.meetupMode(), request.title(), request.description(), request.startTime(), request.endTime(),
                 request.applicationDeadline(), request.city(), request.district(), request.locationName(),
-                request.address(), request.capacity(), request.minimumAge(), request.maximumAge(),
+                request.address(), request.onlinePlatform(), request.serverRegion(), request.accessInstructions(),
+                request.capacity(), request.minimumAge(), request.maximumAge(),
                 request.genderRequirement(), request.skillRequirement());
     }
 
     private MeetupCommand command(UpdateMeetupRequest request) {
         return new MeetupCommand(request.meetupMode(), request.title(), request.description(), request.startTime(), request.endTime(),
                 request.applicationDeadline(), request.city(), request.district(), request.locationName(),
-                request.address(), request.capacity(), request.minimumAge(), request.maximumAge(),
+                request.address(), request.onlinePlatform(), request.serverRegion(), request.accessInstructions(),
+                request.capacity(), request.minimumAge(), request.maximumAge(),
                 request.genderRequirement(), request.skillRequirement());
     }
 

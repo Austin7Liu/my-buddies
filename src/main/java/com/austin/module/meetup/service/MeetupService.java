@@ -2,6 +2,7 @@ package com.austin.module.meetup.service;
 
 import com.austin.module.meetup.domain.Meetup;
 import com.austin.module.meetup.domain.MeetupParticipant;
+import com.austin.module.meetup.domain.MeetupOnlineDetail;
 import com.austin.module.meetup.domain.MeetupStatus;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 
@@ -37,5 +38,7 @@ public interface MeetupService {
 
     long acceptedCount(long meetupId);
 
-    boolean canSeeExactAddress(Long viewerId, Meetup meetup);
+    MeetupOnlineDetail findOnlineDetail(long meetupId);
+
+    boolean canSeePrivateDetails(Long viewerId, Meetup meetup);
 }

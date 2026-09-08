@@ -178,14 +178,41 @@ class MeetupControllerTests {
         mockMvc.perform(post("/api/v1/meetups")
                         .with(user(creator.getId().toString()))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(body(topic.getId(), null, 4)
-                                .replace("\"meetupMode\":\"OFFLINE\"", "\"meetupMode\":\"ONLINE\"")
-                                .replace("\"city\":\"杭州\",\"district\":\"滨江\",", "")
-                                .replace("\"locationName\":\"滨江体育馆\",\"address\":\"滨江区网商路 1 号\",", "")))
+                        .content(onlineBody(topic.getId(), false)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.meetupMode").value("ONLINE"))
+                .andExpect(jsonPath("$.data.onlinePlatform").value("英雄联盟"))
+                .andExpect(jsonPath("$.data.serverRegion").value("艾欧尼亚"))
+                .andExpect(jsonPath("$.data.accessInstructions").value("接受后由创建者发送房间号"))
                 .andExpect(jsonPath("$.data.city").doesNotExist())
                 .andExpect(jsonPath("$.data.address").doesNotExist());
+
+        Meetup meetup = findMeetup();
+        publish(meetup.getId());
+        mockMvc.perform(get("/api/v1/meetups/{meetupId}", meetup.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.onlinePlatform").value("英雄联盟"))
+                .andExpect(jsonPath("$.data.serverRegion").value("艾欧尼亚"))
+                .andExpect(jsonPath("$.data.accessInstructions").doesNotExist());
+
+        mockMvc.perform(post("/api/v1/meetups/{meetupId}/applications", meetup.getId())
+                        .with(user(applicant.getId().toString()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"message\":\"申请加入\"}"))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/api/v1/meetups/{meetupId}", meetup.getId())
+                        .with(user(applicant.getId().toString())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.accessInstructions").doesNotExist());
+
+        mockMvc.perform(post("/api/v1/meetups/{meetupId}/applications/{accountId}/accept",
+                        meetup.getId(), applicant.getId())
+                        .with(user(creator.getId().toString())))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/api/v1/meetups/{meetupId}", meetup.getId())
+                        .with(user(applicant.getId().toString())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.accessInstructions").value("接受后由创建者发送房间号"));
     }
 
     @Test
@@ -205,10 +232,22 @@ class MeetupControllerTests {
         mockMvc.perform(post("/api/v1/meetups")
                         .with(user(creator.getId().toString()))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(body(topic.getId(), null, 4)
-                                .replace("\"meetupMode\":\"OFFLINE\"", "\"meetupMode\":\"ONLINE\"")))
+                        .content(onlineBody(topic.getId(), true)))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.error.message").value("线上活动不能填写线下地点信息"));
+    }
+
+    @Test
+    void onlineMeetupRequiresPlatformAndAccessInstructions() throws Exception {
+        mockMvc.perform(post("/api/v1/meetups")
+                        .with(user(creator.getId().toString()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body(topic.getId(), null, 4)
+                                .replace("\"meetupMode\":\"OFFLINE\"", "\"meetupMode\":\"ONLINE\"")
+                                .replace("\"city\":\"杭州\",\"district\":\"滨江\",", "")
+                                .replace("\"locationName\":\"滨江体育馆\",\"address\":\"滨江区网商路 1 号\",", "")))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.message").value("线上活动必须填写线上平台和加入说明"));
     }
 
     @Test
@@ -267,5 +306,19 @@ class MeetupControllerTests {
                 + "\"locationName\":\"滨江体育馆\",\"address\":\"滨江区网商路 1 号\","
                 + "\"capacity\":" + capacity + ",\"minimumAge\":18,\"maximumAge\":80,"
                 + "\"genderRequirement\":\"ANY\",\"skillRequirement\":\"入门以上\"}";
+    }
+
+    private String onlineBody(Long topicId, boolean keepOfflineLocation) {
+        String body = body(topicId, null, 5)
+                .replace("\"meetupMode\":\"OFFLINE\"", "\"meetupMode\":\"ONLINE\"")
+                .replace("\"capacity\":5,", "\"onlinePlatform\":\"英雄联盟\","
+                        + "\"serverRegion\":\"艾欧尼亚\","
+                        + "\"accessInstructions\":\"接受后由创建者发送房间号\","
+                        + "\"capacity\":5,");
+        if (keepOfflineLocation) {
+            return body;
+        }
+        return body.replace("\"city\":\"杭州\",\"district\":\"滨江\",", "")
+                .replace("\"locationName\":\"滨江体育馆\",\"address\":\"滨江区网商路 1 号\",", "");
     }
 }

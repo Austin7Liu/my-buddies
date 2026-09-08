@@ -32,6 +32,12 @@ public record UpdateMeetupRequest(
         String locationName,
         @Size(max = 255, message = "详细地址不能超过 255 个字符")
         String address,
+        @Size(max = 64, message = "线上平台不能超过 64 个字符")
+        String onlinePlatform,
+        @Size(max = 64, message = "服务器区域不能超过 64 个字符")
+        String serverRegion,
+        @Size(max = 500, message = "加入说明不能超过 500 个字符")
+        String accessInstructions,
         @NotNull(message = "活动人数不能为空")
         @Min(value = 2, message = "活动人数至少为 2 人")
         @Max(value = 100, message = "活动人数不能超过 100 人")

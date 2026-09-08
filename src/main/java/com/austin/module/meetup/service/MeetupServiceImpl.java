@@ -18,12 +18,14 @@ import com.austin.module.meetup.domain.Meetup;
 import com.austin.module.meetup.domain.MeetupAuditAction;
 import com.austin.module.meetup.domain.MeetupAuditLog;
 import com.austin.module.meetup.domain.MeetupMode;
+import com.austin.module.meetup.domain.MeetupOnlineDetail;
 import com.austin.module.meetup.domain.MeetupParticipant;
 import com.austin.module.meetup.domain.MeetupStatus;
 import com.austin.module.meetup.domain.ParticipantRole;
 import com.austin.module.meetup.domain.ParticipantStatus;
 import com.austin.module.meetup.mapper.MeetupAuditLogMapper;
 import com.austin.module.meetup.mapper.MeetupMapper;
+import com.austin.module.meetup.mapper.MeetupOnlineDetailMapper;
 import com.austin.module.meetup.mapper.MeetupParticipantMapper;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
@@ -45,6 +47,7 @@ public class MeetupServiceImpl implements MeetupService {
     private static final List<MeetupStatus> PUBLIC_STATUSES = List.of(MeetupStatus.OPEN, MeetupStatus.CONFIRMED);
 
     private final MeetupMapper meetupMapper;
+    private final MeetupOnlineDetailMapper onlineDetailMapper;
     private final MeetupParticipantMapper participantMapper;
     private final MeetupAuditLogMapper auditMapper;
     private final UserAccountService accountService;
@@ -142,6 +145,7 @@ public class MeetupServiceImpl implements MeetupService {
                 .updatedAt(now)
                 .build();
         meetupMapper.insert(meetup);
+        syncOnlineDetail(meetup.getId(), command, now);
         participantMapper.insert(MeetupParticipant.builder()
                 .meetupId(meetup.getId())
                 .accountId(creatorId)
@@ -168,6 +172,7 @@ public class MeetupServiceImpl implements MeetupService {
         LocalDateTime now = LocalDateTime.now(clock);
         meetup.setUpdatedAt(now);
         persist(meetup);
+        syncOnlineDetail(meetupId, command, now);
         audit(meetupId, creatorId, null, MeetupAuditAction.UPDATE, null, now);
         return meetup;
     }
@@ -372,7 +377,13 @@ public class MeetupServiceImpl implements MeetupService {
 
     @Override
     @Transactional(readOnly = true)
-    public boolean canSeeExactAddress(Long viewerId, Meetup meetup) {
+    public MeetupOnlineDetail findOnlineDetail(long meetupId) {
+        return onlineDetailMapper.selectById(meetupId);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public boolean canSeePrivateDetails(Long viewerId, Meetup meetup) {
         return isInvolved(viewerId, meetup);
     }
 
@@ -466,11 +477,45 @@ public class MeetupServiceImpl implements MeetupService {
                     || isBlank(command.locationName()) || isBlank(command.address())) {
                 throw new ConflictException("线下活动必须填写城市、区域、地点名称和详细地址");
             }
+            if (!isBlank(command.onlinePlatform()) || !isBlank(command.serverRegion())
+                    || !isBlank(command.accessInstructions())) {
+                throw new ConflictException("线下活动不能填写线上活动信息");
+            }
             return;
         }
         if (!isBlank(command.city()) || !isBlank(command.district())
                 || !isBlank(command.locationName()) || !isBlank(command.address())) {
             throw new ConflictException("线上活动不能填写线下地点信息");
+        }
+        if (isBlank(command.onlinePlatform()) || isBlank(command.accessInstructions())) {
+            throw new ConflictException("线上活动必须填写线上平台和加入说明");
+        }
+    }
+
+    private void syncOnlineDetail(long meetupId, MeetupCommand command, LocalDateTime now) {
+        if (command.meetupMode() == MeetupMode.OFFLINE) {
+            onlineDetailMapper.deleteById(meetupId);
+            return;
+        }
+        MeetupOnlineDetail detail = onlineDetailMapper.selectById(meetupId);
+        if (detail == null) {
+            onlineDetailMapper.insert(MeetupOnlineDetail.builder()
+                    .meetupId(meetupId)
+                    .onlinePlatform(command.onlinePlatform().trim())
+                    .serverRegion(trim(command.serverRegion()))
+                    .accessInstructions(command.accessInstructions().trim())
+                    .version(0)
+                    .createdAt(now)
+                    .updatedAt(now)
+                    .build());
+            return;
+        }
+        detail.setOnlinePlatform(command.onlinePlatform().trim());
+        detail.setServerRegion(trim(command.serverRegion()));
+        detail.setAccessInstructions(command.accessInstructions().trim());
+        detail.setUpdatedAt(now);
+        if (onlineDetailMapper.updateById(detail) != 1) {
+            throw new ConflictException("线上活动信息已发生变化，请刷新后重试");
         }
     }
 
