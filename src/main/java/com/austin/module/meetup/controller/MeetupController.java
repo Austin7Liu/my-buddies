@@ -178,14 +178,14 @@ public class MeetupController {
     }
 
     private MeetupCommand command(CreateMeetupRequest request) {
-        return new MeetupCommand(request.title(), request.description(), request.startTime(), request.endTime(),
+        return new MeetupCommand(request.meetupMode(), request.title(), request.description(), request.startTime(), request.endTime(),
                 request.applicationDeadline(), request.city(), request.district(), request.locationName(),
                 request.address(), request.capacity(), request.minimumAge(), request.maximumAge(),
                 request.genderRequirement(), request.skillRequirement());
     }
 
     private MeetupCommand command(UpdateMeetupRequest request) {
-        return new MeetupCommand(request.title(), request.description(), request.startTime(), request.endTime(),
+        return new MeetupCommand(request.meetupMode(), request.title(), request.description(), request.startTime(), request.endTime(),
                 request.applicationDeadline(), request.city(), request.district(), request.locationName(),
                 request.address(), request.capacity(), request.minimumAge(), request.maximumAge(),
                 request.genderRequirement(), request.skillRequirement());

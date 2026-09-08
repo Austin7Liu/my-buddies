@@ -87,6 +87,7 @@ class MeetupControllerTests {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.topicId").value(topic.getId()))
                 .andExpect(jsonPath("$.data.circleId").value(circle.getId()))
+                .andExpect(jsonPath("$.data.meetupMode").value("OFFLINE"))
                 .andExpect(jsonPath("$.data.status").value("DRAFT"))
                 .andExpect(jsonPath("$.data.acceptedCount").value(1))
                 .andExpect(jsonPath("$.data.remainingSlots").value(3));
@@ -173,6 +174,44 @@ class MeetupControllerTests {
     }
 
     @Test
+    void onlineMeetupDoesNotRequireLocation() throws Exception {
+        mockMvc.perform(post("/api/v1/meetups")
+                        .with(user(creator.getId().toString()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body(topic.getId(), null, 4)
+                                .replace("\"meetupMode\":\"OFFLINE\"", "\"meetupMode\":\"ONLINE\"")
+                                .replace("\"city\":\"杭州\",\"district\":\"滨江\",", "")
+                                .replace("\"locationName\":\"滨江体育馆\",\"address\":\"滨江区网商路 1 号\",", "")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.meetupMode").value("ONLINE"))
+                .andExpect(jsonPath("$.data.city").doesNotExist())
+                .andExpect(jsonPath("$.data.address").doesNotExist());
+    }
+
+    @Test
+    void offlineMeetupRequiresLocation() throws Exception {
+        mockMvc.perform(post("/api/v1/meetups")
+                        .with(user(creator.getId().toString()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body(topic.getId(), null, 4)
+                                .replace("\"locationName\":\"滨江体育馆\",", "")))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.message")
+                        .value("线下活动必须填写城市、区域、地点名称和详细地址"));
+    }
+
+    @Test
+    void onlineMeetupRejectsOfflineLocation() throws Exception {
+        mockMvc.perform(post("/api/v1/meetups")
+                        .with(user(creator.getId().toString()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body(topic.getId(), null, 4)
+                                .replace("\"meetupMode\":\"OFFLINE\"", "\"meetupMode\":\"ONLINE\"")))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.message").value("线上活动不能填写线下地点信息"));
+    }
+
+    @Test
     void contentAdminCanTerminatePublishedMeetup() throws Exception {
         createMeetup(topic.getId(), null, 4).andExpect(status().isOk());
         Meetup meetup = findMeetup();
@@ -218,6 +257,7 @@ class MeetupControllerTests {
         String association = topicId == null ? "" : "\"topicId\":" + topicId + ",";
         association += circleId == null ? "" : "\"circleId\":" + circleId + ",";
         return "{" + association
+                + "\"meetupMode\":\"OFFLINE\","
                 + "\"title\":\"周末网球活动\","
                 + "\"description\":\"一起打网球\","
                 + "\"startTime\":\"" + FORMATTER.format(start) + "\","

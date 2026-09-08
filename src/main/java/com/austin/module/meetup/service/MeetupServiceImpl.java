@@ -17,6 +17,7 @@ import com.austin.module.meetup.domain.GenderRequirement;
 import com.austin.module.meetup.domain.Meetup;
 import com.austin.module.meetup.domain.MeetupAuditAction;
 import com.austin.module.meetup.domain.MeetupAuditLog;
+import com.austin.module.meetup.domain.MeetupMode;
 import com.austin.module.meetup.domain.MeetupParticipant;
 import com.austin.module.meetup.domain.MeetupStatus;
 import com.austin.module.meetup.domain.ParticipantRole;
@@ -120,15 +121,16 @@ public class MeetupServiceImpl implements MeetupService {
                 .creatorAccountId(creatorId)
                 .topicId(association.topicId())
                 .circleId(association.circleId())
+                .meetupMode(command.meetupMode())
                 .title(command.title().trim())
                 .description(command.description().trim())
                 .startTime(command.startTime())
                 .endTime(command.endTime())
                 .applicationDeadline(command.applicationDeadline())
-                .city(command.city().trim())
-                .district(command.district().trim())
-                .locationName(command.locationName().trim())
-                .address(command.address().trim())
+                .city(trim(command.city()))
+                .district(trim(command.district()))
+                .locationName(trim(command.locationName()))
+                .address(trim(command.address()))
                 .capacity(command.capacity())
                 .minimumAge(command.minimumAge())
                 .maximumAge(command.maximumAge())
@@ -430,6 +432,7 @@ public class MeetupServiceImpl implements MeetupService {
         if (command.maximumAge() < command.minimumAge()) {
             throw new ConflictException("最高年龄不能小于最低年龄");
         }
+        validateLocation(command);
         int creatorAge = age(creatorIdentity);
         if (creatorAge < command.minimumAge() || creatorAge > command.maximumAge()) {
             throw new ConflictException("创建者本人必须符合活动年龄要求");
@@ -437,20 +440,38 @@ public class MeetupServiceImpl implements MeetupService {
     }
 
     private void applyCommand(Meetup meetup, MeetupCommand command) {
+        meetup.setMeetupMode(command.meetupMode());
         meetup.setTitle(command.title().trim());
         meetup.setDescription(command.description().trim());
         meetup.setStartTime(command.startTime());
         meetup.setEndTime(command.endTime());
         meetup.setApplicationDeadline(command.applicationDeadline());
-        meetup.setCity(command.city().trim());
-        meetup.setDistrict(command.district().trim());
-        meetup.setLocationName(command.locationName().trim());
-        meetup.setAddress(command.address().trim());
+        meetup.setCity(trim(command.city()));
+        meetup.setDistrict(trim(command.district()));
+        meetup.setLocationName(trim(command.locationName()));
+        meetup.setAddress(trim(command.address()));
         meetup.setCapacity(command.capacity());
         meetup.setMinimumAge(command.minimumAge());
         meetup.setMaximumAge(command.maximumAge());
         meetup.setGenderRequirement(command.genderRequirement());
         meetup.setSkillRequirement(trim(command.skillRequirement()));
+    }
+
+    private void validateLocation(MeetupCommand command) {
+        if (command.meetupMode() == null) {
+            throw new ConflictException("活动模式不能为空");
+        }
+        if (command.meetupMode() == MeetupMode.OFFLINE) {
+            if (isBlank(command.city()) || isBlank(command.district())
+                    || isBlank(command.locationName()) || isBlank(command.address())) {
+                throw new ConflictException("线下活动必须填写城市、区域、地点名称和详细地址");
+            }
+            return;
+        }
+        if (!isBlank(command.city()) || !isBlank(command.district())
+                || !isBlank(command.locationName()) || !isBlank(command.address())) {
+            throw new ConflictException("线上活动不能填写线下地点信息");
+        }
     }
 
     private IdentityVerification ensureEligible(long accountId, String action) {
@@ -575,6 +596,10 @@ public class MeetupServiceImpl implements MeetupService {
 
     private String trim(String value) {
         return value == null || value.isBlank() ? null : value.trim();
+    }
+
+    private boolean isBlank(String value) {
+        return value == null || value.isBlank();
     }
 
     private void audit(long meetupId, long operatorId, Long participantId, MeetupAuditAction action,

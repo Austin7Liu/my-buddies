@@ -30,6 +30,8 @@ public class Meetup {
     @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private Long circleId;
 
+    private MeetupMode meetupMode;
+
     private String title;
 
     private String description;
@@ -40,12 +42,16 @@ public class Meetup {
 
     private LocalDateTime applicationDeadline;
 
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private String city;
 
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private String district;
 
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private String locationName;
 
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private String address;
 
     private Integer capacity;

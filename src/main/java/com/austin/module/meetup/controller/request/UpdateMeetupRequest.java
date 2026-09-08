@@ -1,6 +1,7 @@
 package com.austin.module.meetup.controller.request;
 
 import com.austin.module.meetup.domain.GenderRequirement;
+import com.austin.module.meetup.domain.MeetupMode;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -9,6 +10,8 @@ import jakarta.validation.constraints.Size;
 import java.time.LocalDateTime;
 
 public record UpdateMeetupRequest(
+        @NotNull(message = "活动模式不能为空")
+        MeetupMode meetupMode,
         @NotBlank(message = "活动标题不能为空")
         @Size(max = 100, message = "活动标题不能超过 100 个字符")
         String title,
@@ -21,16 +24,12 @@ public record UpdateMeetupRequest(
         LocalDateTime endTime,
         @NotNull(message = "报名截止时间不能为空")
         LocalDateTime applicationDeadline,
-        @NotBlank(message = "城市不能为空")
         @Size(max = 64, message = "城市不能超过 64 个字符")
         String city,
-        @NotBlank(message = "区域不能为空")
         @Size(max = 64, message = "区域不能超过 64 个字符")
         String district,
-        @NotBlank(message = "地点名称不能为空")
         @Size(max = 128, message = "地点名称不能超过 128 个字符")
         String locationName,
-        @NotBlank(message = "详细地址不能为空")
         @Size(max = 255, message = "详细地址不能超过 255 个字符")
         String address,
         @NotNull(message = "活动人数不能为空")

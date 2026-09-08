@@ -2,6 +2,7 @@ package com.austin.module.meetup.controller.response;
 
 import com.austin.module.meetup.domain.GenderRequirement;
 import com.austin.module.meetup.domain.Meetup;
+import com.austin.module.meetup.domain.MeetupMode;
 import com.austin.module.meetup.domain.MeetupStatus;
 import java.time.LocalDateTime;
 
@@ -10,6 +11,7 @@ public record MeetupResponse(
         Long creatorAccountId,
         Long topicId,
         Long circleId,
+        MeetupMode meetupMode,
         String title,
         String description,
         LocalDateTime startTime,
@@ -33,7 +35,7 @@ public record MeetupResponse(
 
     public static MeetupResponse from(Meetup meetup, long acceptedCount, boolean exposeAddress) {
         return new MeetupResponse(meetup.getId(), meetup.getCreatorAccountId(), meetup.getTopicId(),
-                meetup.getCircleId(), meetup.getTitle(), meetup.getDescription(), meetup.getStartTime(),
+                meetup.getCircleId(), meetup.getMeetupMode(), meetup.getTitle(), meetup.getDescription(), meetup.getStartTime(),
                 meetup.getEndTime(), meetup.getApplicationDeadline(), meetup.getCity(), meetup.getDistrict(),
                 meetup.getLocationName(), exposeAddress ? meetup.getAddress() : null, meetup.getCapacity(),
                 acceptedCount, Math.max(0, meetup.getCapacity() - acceptedCount), meetup.getMinimumAge(),
