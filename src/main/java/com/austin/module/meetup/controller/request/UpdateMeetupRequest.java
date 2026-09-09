@@ -8,6 +8,9 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import java.time.LocalDateTime;
+import java.math.BigDecimal;
+import jakarta.validation.constraints.DecimalMax;
+import jakarta.validation.constraints.DecimalMin;
 
 public record UpdateMeetupRequest(
         @NotNull(message = "活动模式不能为空")
@@ -32,6 +35,15 @@ public record UpdateMeetupRequest(
         String locationName,
         @Size(max = 255, message = "详细地址不能超过 255 个字符")
         String address,
+        @DecimalMin(value = "-90.0", message = "纬度不能小于 -90")
+        @DecimalMax(value = "90.0", message = "纬度不能大于 90")
+        BigDecimal locationLatitude,
+        @DecimalMin(value = "-180.0", message = "经度不能小于 -180")
+        @DecimalMax(value = "180.0", message = "经度不能大于 180")
+        BigDecimal locationLongitude,
+        @Min(value = 50, message = "签到半径不能小于 50 米")
+        @Max(value = 1000, message = "签到半径不能大于 1000 米")
+        Integer checkInRadiusMeters,
         @Size(max = 64, message = "线上平台不能超过 64 个字符")
         String onlinePlatform,
         @Size(max = 64, message = "服务器区域不能超过 64 个字符")

@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.baomidou.mybatisplus.annotation.Version;
 import java.time.LocalDateTime;
+import java.math.BigDecimal;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -53,6 +54,15 @@ public class Meetup {
 
     @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private String address;
+
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
+    private BigDecimal locationLatitude;
+
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
+    private BigDecimal locationLongitude;
+
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
+    private Integer checkInRadiusMeters;
 
     private Integer capacity;
 

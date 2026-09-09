@@ -7,6 +7,7 @@ import com.austin.module.meetup.domain.MeetupOnlineDetail;
 import com.austin.module.meetup.domain.MeetupStatus;
 import com.austin.module.profile.controller.response.ProfileSummaryResponse;
 import java.time.LocalDateTime;
+import java.math.BigDecimal;
 
 public record MeetupResponse(
         Long id,
@@ -24,6 +25,9 @@ public record MeetupResponse(
         String district,
         String locationName,
         String address,
+        BigDecimal locationLatitude,
+        BigDecimal locationLongitude,
+        Integer checkInRadiusMeters,
         String onlinePlatform,
         String serverRegion,
         String accessInstructions,
@@ -50,6 +54,9 @@ public record MeetupResponse(
                 meetup.getCircleId(), meetup.getMeetupMode(), meetup.getTitle(), meetup.getDescription(), meetup.getStartTime(),
                 meetup.getEndTime(), meetup.getApplicationDeadline(), meetup.getCity(), meetup.getDistrict(),
                 meetup.getLocationName(), exposePrivateDetails ? meetup.getAddress() : null,
+                exposePrivateDetails ? meetup.getLocationLatitude() : null,
+                exposePrivateDetails ? meetup.getLocationLongitude() : null,
+                exposePrivateDetails ? meetup.getCheckInRadiusMeters() : null,
                 onlineDetail == null ? null : onlineDetail.getOnlinePlatform(),
                 onlineDetail == null ? null : onlineDetail.getServerRegion(),
                 onlineDetail == null || !exposePrivateDetails ? null : onlineDetail.getAccessInstructions(),

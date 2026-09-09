@@ -203,6 +203,64 @@ class MeetupControllerTests {
     }
 
     @Test
+    void acceptedParticipantCanCheckInOnceWithinTimeAndDistance() throws Exception {
+        createMeetup(topic.getId(), null, 2).andExpect(status().isOk());
+        Meetup meetup = findMeetup();
+        publish(meetup.getId());
+        mockMvc.perform(post("/api/v1/meetups/{meetupId}/applications", meetup.getId())
+                        .with(user(applicant.getId().toString()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"message\":\"参加\"}"))
+                .andExpect(status().isOk());
+        mockMvc.perform(post("/api/v1/meetups/{meetupId}/applications/{accountId}/accept",
+                        meetup.getId(), applicant.getId())
+                        .with(user(creator.getId().toString())))
+                .andExpect(status().isOk());
+        mockMvc.perform(post("/api/v1/meetups/{meetupId}/confirm", meetup.getId())
+                        .with(user(creator.getId().toString())))
+                .andExpect(status().isOk());
+
+        Meetup confirmed = meetupMapper.selectById(meetup.getId());
+        LocalDateTime now = LocalDateTime.now();
+        confirmed.setApplicationDeadline(now.minusHours(2));
+        confirmed.setStartTime(now.minusMinutes(5));
+        confirmed.setEndTime(now.plusHours(1));
+        assertThat(meetupMapper.updateById(confirmed)).isEqualTo(1);
+
+        mockMvc.perform(post("/api/v1/meetups/{meetupId}/check-ins", meetup.getId())
+                        .with(user(applicant.getId().toString()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"latitude\":31.2304,\"longitude\":121.4737}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.message").value("当前位置超出签到范围"));
+
+        String nearbyLocation = "{\"latitude\":30.2084,\"longitude\":120.2123}";
+        String firstResponse = mockMvc.perform(post("/api/v1/meetups/{meetupId}/check-ins", meetup.getId())
+                        .with(user(applicant.getId().toString()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(nearbyLocation))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.accountId").value(applicant.getId()))
+                .andExpect(jsonPath("$.data.distanceMeters").value(0))
+                .andReturn().getResponse().getContentAsString();
+        String repeatedResponse = mockMvc.perform(post("/api/v1/meetups/{meetupId}/check-ins", meetup.getId())
+                        .with(user(applicant.getId().toString()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(nearbyLocation))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        assertThat(repeatedResponse).isEqualTo(firstResponse);
+
+        mockMvc.perform(get("/api/v1/meetups/{meetupId}/check-ins", meetup.getId())
+                        .with(user(applicant.getId().toString())))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/v1/meetups/{meetupId}/check-ins", meetup.getId())
+                        .with(user(creator.getId().toString())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total").value(1));
+    }
+
+    @Test
     void creatorCannotConfirmWithoutAnotherAcceptedParticipant() throws Exception {
         createMeetup(topic.getId(), null, 2).andExpect(status().isOk());
         Meetup meetup = findMeetup();
@@ -283,7 +341,7 @@ class MeetupControllerTests {
                                 .replace("\"locationName\":\"滨江体育馆\",", "")))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.error.message")
-                        .value("线下活动必须填写城市、区域、地点名称和详细地址"));
+                        .value("线下活动必须填写地点信息和经纬度"));
     }
 
     @Test
@@ -304,7 +362,9 @@ class MeetupControllerTests {
                         .content(body(topic.getId(), null, 4)
                                 .replace("\"meetupMode\":\"OFFLINE\"", "\"meetupMode\":\"ONLINE\"")
                                 .replace("\"city\":\"杭州\",\"district\":\"滨江\",", "")
-                                .replace("\"locationName\":\"滨江体育馆\",\"address\":\"滨江区网商路 1 号\",", "")))
+                                .replace("\"locationName\":\"滨江体育馆\",\"address\":\"滨江区网商路 1 号\",", "")
+                                .replace("\"locationLatitude\":30.2084,\"locationLongitude\":120.2123,", "")
+                                .replace("\"checkInRadiusMeters\":300,", "")))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.error.message").value("线上活动必须填写线上平台和加入说明"));
     }
@@ -363,6 +423,8 @@ class MeetupControllerTests {
                 + "\"applicationDeadline\":\"" + FORMATTER.format(deadline) + "\","
                 + "\"city\":\"杭州\",\"district\":\"滨江\","
                 + "\"locationName\":\"滨江体育馆\",\"address\":\"滨江区网商路 1 号\","
+                + "\"locationLatitude\":30.2084,\"locationLongitude\":120.2123,"
+                + "\"checkInRadiusMeters\":300,"
                 + "\"capacity\":" + capacity + ",\"minimumAge\":18,\"maximumAge\":80,"
                 + "\"genderRequirement\":\"ANY\",\"skillRequirement\":\"入门以上\"}";
     }
@@ -378,6 +440,8 @@ class MeetupControllerTests {
             return body;
         }
         return body.replace("\"city\":\"杭州\",\"district\":\"滨江\",", "")
-                .replace("\"locationName\":\"滨江体育馆\",\"address\":\"滨江区网商路 1 号\",", "");
+                .replace("\"locationName\":\"滨江体育馆\",\"address\":\"滨江区网商路 1 号\",", "")
+                .replace("\"locationLatitude\":30.2084,\"locationLongitude\":120.2123,", "")
+                .replace("\"checkInRadiusMeters\":300,", "");
     }
 }

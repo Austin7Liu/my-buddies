@@ -137,6 +137,10 @@ public class MeetupServiceImpl implements MeetupService {
                 .district(trim(command.district()))
                 .locationName(trim(command.locationName()))
                 .address(trim(command.address()))
+                .locationLatitude(command.locationLatitude())
+                .locationLongitude(command.locationLongitude())
+                .checkInRadiusMeters(command.meetupMode() == MeetupMode.OFFLINE
+                        ? defaultRadius(command.checkInRadiusMeters()) : null)
                 .capacity(command.capacity())
                 .minimumAge(command.minimumAge())
                 .maximumAge(command.maximumAge())
@@ -487,6 +491,10 @@ public class MeetupServiceImpl implements MeetupService {
         meetup.setDistrict(trim(command.district()));
         meetup.setLocationName(trim(command.locationName()));
         meetup.setAddress(trim(command.address()));
+        meetup.setLocationLatitude(command.locationLatitude());
+        meetup.setLocationLongitude(command.locationLongitude());
+        meetup.setCheckInRadiusMeters(command.meetupMode() == MeetupMode.OFFLINE
+                ? defaultRadius(command.checkInRadiusMeters()) : null);
         meetup.setCapacity(command.capacity());
         meetup.setMinimumAge(command.minimumAge());
         meetup.setMaximumAge(command.maximumAge());
@@ -500,8 +508,9 @@ public class MeetupServiceImpl implements MeetupService {
         }
         if (command.meetupMode() == MeetupMode.OFFLINE) {
             if (isBlank(command.city()) || isBlank(command.district())
-                    || isBlank(command.locationName()) || isBlank(command.address())) {
-                throw new ConflictException("线下活动必须填写城市、区域、地点名称和详细地址");
+                    || isBlank(command.locationName()) || isBlank(command.address())
+                    || command.locationLatitude() == null || command.locationLongitude() == null) {
+                throw new ConflictException("线下活动必须填写地点信息和经纬度");
             }
             if (!isBlank(command.onlinePlatform()) || !isBlank(command.serverRegion())
                     || !isBlank(command.accessInstructions())) {
@@ -510,7 +519,9 @@ public class MeetupServiceImpl implements MeetupService {
             return;
         }
         if (!isBlank(command.city()) || !isBlank(command.district())
-                || !isBlank(command.locationName()) || !isBlank(command.address())) {
+                || !isBlank(command.locationName()) || !isBlank(command.address())
+                || command.locationLatitude() != null || command.locationLongitude() != null
+                || command.checkInRadiusMeters() != null) {
             throw new ConflictException("线上活动不能填写线下地点信息");
         }
         if (isBlank(command.onlinePlatform()) || isBlank(command.accessInstructions())) {
@@ -671,6 +682,10 @@ public class MeetupServiceImpl implements MeetupService {
 
     private boolean isBlank(String value) {
         return value == null || value.isBlank();
+    }
+
+    private int defaultRadius(Integer radius) {
+        return radius == null ? 300 : radius;
     }
 
     private void audit(long meetupId, long operatorId, Long participantId, MeetupAuditAction action,

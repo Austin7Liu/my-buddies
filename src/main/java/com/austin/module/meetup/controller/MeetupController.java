@@ -4,13 +4,16 @@ import com.austin.common.model.ApiResponse;
 import com.austin.common.model.PageResponse;
 import com.austin.module.meetup.controller.request.CreateMeetupRequest;
 import com.austin.module.meetup.controller.request.MeetupApplicationRequest;
+import com.austin.module.meetup.controller.request.MeetupCheckInRequest;
 import com.austin.module.meetup.controller.request.ReasonRequest;
 import com.austin.module.meetup.controller.request.UpdateMeetupRequest;
 import com.austin.module.meetup.controller.response.MeetupParticipantResponse;
+import com.austin.module.meetup.controller.response.MeetupCheckInResponse;
 import com.austin.module.meetup.controller.response.MeetupResponse;
 import com.austin.module.meetup.domain.Meetup;
 import com.austin.module.meetup.domain.MeetupParticipant;
 import com.austin.module.meetup.service.MeetupCommand;
+import com.austin.module.meetup.service.MeetupCheckInService;
 import com.austin.module.meetup.service.MeetupService;
 import com.austin.module.profile.controller.response.ProfileSummaryResponse;
 import com.austin.module.profile.service.ProfileService;
@@ -41,6 +44,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class MeetupController {
 
     private final MeetupService meetupService;
+    private final MeetupCheckInService checkInService;
     private final ProfileService profileService;
 
     @GetMapping("/meetups")
@@ -184,6 +188,37 @@ public class MeetupController {
                 meetupService.withdraw(accountId(authentication), meetupId, request.reason())));
     }
 
+    @PostMapping("/meetups/{meetupId}/check-ins")
+    @PreAuthorize("isAuthenticated()")
+    public ApiResponse<MeetupCheckInResponse> checkIn(
+            Authentication authentication,
+            @PathVariable @Positive long meetupId,
+            @Valid @RequestBody MeetupCheckInRequest request) {
+        return ApiResponse.success(MeetupCheckInResponse.from(checkInService.checkIn(
+                accountId(authentication), meetupId, request.latitude(), request.longitude())));
+    }
+
+    @GetMapping("/meetups/{meetupId}/check-ins/me")
+    @PreAuthorize("isAuthenticated()")
+    public ApiResponse<MeetupCheckInResponse> getMyCheckIn(
+            Authentication authentication,
+            @PathVariable @Positive long meetupId) {
+        return ApiResponse.success(MeetupCheckInResponse.from(
+                checkInService.getMine(accountId(authentication), meetupId)));
+    }
+
+    @GetMapping("/meetups/{meetupId}/check-ins")
+    @PreAuthorize("isAuthenticated()")
+    public ApiResponse<PageResponse<MeetupCheckInResponse>> listCheckIns(
+            Authentication authentication,
+            @PathVariable @Positive long meetupId,
+            @RequestParam(defaultValue = "1") @Min(1) long page,
+            @RequestParam(defaultValue = "20") @Min(1) @Max(100) long size) {
+        return ApiResponse.success(PageResponse.from(
+                checkInService.list(accountId(authentication), meetupId, page, size),
+                MeetupCheckInResponse::from));
+    }
+
     private MeetupResponse response(Meetup meetup, boolean exposeAddress) {
         var summary = profileService.getSummaries(List.of(meetup.getCreatorAccountId()))
                 .get(meetup.getCreatorAccountId());
@@ -222,7 +257,8 @@ public class MeetupController {
     private MeetupCommand command(CreateMeetupRequest request) {
         return new MeetupCommand(request.meetupMode(), request.title(), request.description(), request.startTime(), request.endTime(),
                 request.applicationDeadline(), request.city(), request.district(), request.locationName(),
-                request.address(), request.onlinePlatform(), request.serverRegion(), request.accessInstructions(),
+                request.address(), request.locationLatitude(), request.locationLongitude(), request.checkInRadiusMeters(),
+                request.onlinePlatform(), request.serverRegion(), request.accessInstructions(),
                 request.capacity(), request.minimumAge(), request.maximumAge(),
                 request.genderRequirement(), request.skillRequirement());
     }
@@ -230,7 +266,8 @@ public class MeetupController {
     private MeetupCommand command(UpdateMeetupRequest request) {
         return new MeetupCommand(request.meetupMode(), request.title(), request.description(), request.startTime(), request.endTime(),
                 request.applicationDeadline(), request.city(), request.district(), request.locationName(),
-                request.address(), request.onlinePlatform(), request.serverRegion(), request.accessInstructions(),
+                request.address(), request.locationLatitude(), request.locationLongitude(), request.checkInRadiusMeters(),
+                request.onlinePlatform(), request.serverRegion(), request.accessInstructions(),
                 request.capacity(), request.minimumAge(), request.maximumAge(),
                 request.genderRequirement(), request.skillRequirement());
     }
