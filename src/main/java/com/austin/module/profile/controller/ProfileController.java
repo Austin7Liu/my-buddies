@@ -28,10 +28,7 @@ public class ProfileController {
     private final Clock clock;
 
     @GetMapping("/{accountId}")
-    public ApiResponse<ProfileResponse> getPublic(
-            @PathVariable
-            @Positive
-            long accountId) {
+    public ApiResponse<ProfileResponse> getPublic(@PathVariable @Positive long accountId) {
         return ApiResponse.success(ProfileResponse.from(profileService.getPublic(accountId), clock));
     }
 
@@ -44,9 +41,7 @@ public class ProfileController {
     @PutMapping("/me")
     public ApiResponse<ProfileResponse> update(
             Authentication authentication,
-            @Valid
-            @RequestBody
-            UpdateProfileRequest request) {
+            @Valid @RequestBody UpdateProfileRequest request) {
         return ApiResponse.success(ProfileResponse.from(profileService.update(
                 accountId(authentication), request.nickname(), request.avatarCode(), request.bio(),
                 request.city(), request.district()), clock));

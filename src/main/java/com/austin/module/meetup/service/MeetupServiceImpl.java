@@ -44,7 +44,10 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class MeetupServiceImpl implements MeetupService {
 
-    private static final List<MeetupStatus> PUBLIC_STATUSES = List.of(MeetupStatus.OPEN, MeetupStatus.CONFIRMED);
+    private static final List<MeetupStatus> PUBLIC_STATUSES = List.of(
+            MeetupStatus.OPEN,
+            MeetupStatus.CONFIRMED,
+            MeetupStatus.COMPLETED);
 
     private final MeetupMapper meetupMapper;
     private final MeetupOnlineDetailMapper onlineDetailMapper;
@@ -220,6 +223,29 @@ public class MeetupServiceImpl implements MeetupService {
         meetup.setUpdatedAt(now);
         persist(meetup);
         audit(meetupId, creatorId, null, MeetupAuditAction.CONFIRM, null, now);
+        return meetup;
+    }
+
+    @Override
+    @Transactional
+    public Meetup complete(long creatorId, long meetupId) {
+        Meetup meetup = meetupMapper.selectByIdForUpdate(meetupId);
+        if (meetup == null) {
+            throw new ResourceNotFoundException("活动不存在");
+        }
+        requireCreator(creatorId, meetup);
+        if (meetup.getStatus() != MeetupStatus.CONFIRMED) {
+            throw new ConflictException("只有已确认活动可以完成");
+        }
+        LocalDateTime now = LocalDateTime.now(clock);
+        if (meetup.getEndTime().isAfter(now)) {
+            throw new ConflictException("活动结束后才能完成");
+        }
+        meetup.setStatus(MeetupStatus.COMPLETED);
+        meetup.setCompletedAt(now);
+        meetup.setUpdatedAt(now);
+        persist(meetup);
+        audit(meetupId, creatorId, null, MeetupAuditAction.COMPLETE, null, now);
         return meetup;
     }
 

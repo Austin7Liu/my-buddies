@@ -15,6 +15,7 @@ import com.austin.module.circle.domain.Circle;
 import com.austin.module.circle.service.CircleService;
 import com.austin.module.identity.service.IdentityVerificationService;
 import com.austin.module.meetup.domain.Meetup;
+import com.austin.module.meetup.domain.MeetupAuditAction;
 import com.austin.module.meetup.domain.ParticipantRole;
 import com.austin.module.meetup.domain.ParticipantStatus;
 import com.austin.module.meetup.mapper.MeetupAuditLogMapper;
@@ -87,6 +88,9 @@ class MeetupControllerTests {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.topicId").value(topic.getId()))
                 .andExpect(jsonPath("$.data.circleId").value(circle.getId()))
+                .andExpect(jsonPath("$.data.creator.accountId").value(creator.getId()))
+                .andExpect(jsonPath("$.data.creator.avatarCode").value("PANDA"))
+                .andExpect(jsonPath("$.data.creator.verified").value(true))
                 .andExpect(jsonPath("$.data.meetupMode").value("OFFLINE"))
                 .andExpect(jsonPath("$.data.status").value("DRAFT"))
                 .andExpect(jsonPath("$.data.acceptedCount").value(1))
@@ -129,7 +133,10 @@ class MeetupControllerTests {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"message\":\"想参加活动\"}"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.status").value("APPLIED"));
+                .andExpect(jsonPath("$.data.status").value("APPLIED"))
+                .andExpect(jsonPath("$.data.profile.accountId").value(applicant.getId()))
+                .andExpect(jsonPath("$.data.profile.avatarCode").value("PANDA"))
+                .andExpect(jsonPath("$.data.profile.verified").value(true));
         mockMvc.perform(post("/api/v1/meetups/{meetupId}/applications/{accountId}/accept",
                         meetup.getId(), applicant.getId())
                         .with(user(creator.getId().toString())))
@@ -141,6 +148,55 @@ class MeetupControllerTests {
                 .andExpect(jsonPath("$.data.status").value("CONFIRMED"))
                 .andExpect(jsonPath("$.data.acceptedCount").value(2))
                 .andExpect(jsonPath("$.data.remainingSlots").value(0));
+    }
+
+    @Test
+    void confirmedMeetupCanOnlyBeCompletedByCreatorAfterEndTime() throws Exception {
+        createMeetup(topic.getId(), null, 2).andExpect(status().isOk());
+        Meetup meetup = findMeetup();
+        publish(meetup.getId());
+        mockMvc.perform(post("/api/v1/meetups/{meetupId}/applications", meetup.getId())
+                        .with(user(applicant.getId().toString()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"message\":\"想参加活动\"}"))
+                .andExpect(status().isOk());
+        mockMvc.perform(post("/api/v1/meetups/{meetupId}/applications/{accountId}/accept",
+                        meetup.getId(), applicant.getId())
+                        .with(user(creator.getId().toString())))
+                .andExpect(status().isOk());
+        mockMvc.perform(post("/api/v1/meetups/{meetupId}/confirm", meetup.getId())
+                        .with(user(creator.getId().toString())))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/v1/meetups/{meetupId}/complete", meetup.getId())
+                        .with(user(creator.getId().toString())))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.message").value("活动结束后才能完成"));
+
+        Meetup confirmed = meetupMapper.selectById(meetup.getId());
+        LocalDateTime now = LocalDateTime.now();
+        confirmed.setApplicationDeadline(now.minusHours(3));
+        confirmed.setStartTime(now.minusHours(2));
+        confirmed.setEndTime(now.minusHours(1));
+        assertThat(meetupMapper.updateById(confirmed)).isEqualTo(1);
+
+        mockMvc.perform(post("/api/v1/meetups/{meetupId}/complete", meetup.getId())
+                        .with(user(applicant.getId().toString())))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(post("/api/v1/meetups/{meetupId}/complete", meetup.getId())
+                        .with(user(creator.getId().toString())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("COMPLETED"))
+                .andExpect(jsonPath("$.data.completedAt").isNotEmpty());
+        mockMvc.perform(post("/api/v1/meetups/{meetupId}/complete", meetup.getId())
+                        .with(user(creator.getId().toString())))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.message").value("只有已确认活动可以完成"));
+
+        assertThat(auditMapper.selectCount(new LambdaQueryWrapper<com.austin.module.meetup.domain.MeetupAuditLog>()
+                .eq(com.austin.module.meetup.domain.MeetupAuditLog::getMeetupId, meetup.getId())
+                .eq(com.austin.module.meetup.domain.MeetupAuditLog::getAction, MeetupAuditAction.COMPLETE)))
+                .isEqualTo(1);
     }
 
     @Test

@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.austin.module.profile.mapper.UserProfileMapper">
+
+    <select id="selectSummaries"
+            resultType="com.austin.module.profile.mapper.model.ProfileSummaryRow">
+        SELECT ua.id AS account_id,
+               up.nickname,
+               up.avatar_code,
+               iv.status AS identity_status,
+               ua.account_status
+        FROM user_account ua
+        LEFT JOIN user_profile up ON up.account_id = ua.id
+        LEFT JOIN identity_verification iv ON iv.account_id = ua.id
+        WHERE ua.id IN
+        <foreach collection="accountIds"
+                 item="accountId"
+                 open="("
+                 separator=","
+                 close=")">
+            #{accountId}
+        </foreach>
+    </select>
+
+</mapper>

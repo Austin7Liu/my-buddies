@@ -20,6 +20,8 @@ import com.austin.module.post.domain.Post;
 import com.austin.module.post.domain.PostStatus;
 import com.austin.module.post.mapper.PostAuditLogMapper;
 import com.austin.module.post.mapper.PostMapper;
+import com.austin.module.profile.domain.AvatarCode;
+import com.austin.module.profile.service.ProfileService;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -58,6 +60,9 @@ class PostControllerTests {
     @Autowired
     private PostAuditLogMapper auditMapper;
 
+    @Autowired
+    private ProfileService profileService;
+
     private UserAccount author;
     private UserAccount moderator;
     private Topic topic;
@@ -68,6 +73,7 @@ class PostControllerTests {
         author = accountService.create("13900139500");
         moderator = accountService.create("13900139501");
         identityService.submit(author.getId(), "帖子用户", "11010519491231002X");
+        profileService.update(author.getId(), "帖子玩家", AvatarCode.FOX, null, "杭州", "滨江");
         topic = catalogService.createTopic(moderator.getId(), 101, "post-test-topic", "帖子测试话题", null, 1);
         circle = circleService.create(author.getId(), topic.getId(), "帖子测试圈子", null, "杭州", "滨江");
         circleService.approve(moderator.getId(), circle.getId());
@@ -79,6 +85,10 @@ class PostControllerTests {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.topicId").doesNotExist())
                 .andExpect(jsonPath("$.data.circleId").doesNotExist())
+                .andExpect(jsonPath("$.data.author.accountId").value(author.getId()))
+                .andExpect(jsonPath("$.data.author.nickname").value("帖子玩家"))
+                .andExpect(jsonPath("$.data.author.avatarCode").value("FOX"))
+                .andExpect(jsonPath("$.data.author.verified").value(true))
                 .andExpect(jsonPath("$.data.status").value("PENDING_REVIEW"));
         Post value = findAuthorPost();
 

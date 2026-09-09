@@ -54,6 +54,9 @@ class CircleControllerTests {
     @Test
     void circleIsHiddenUntilContentAdminApprovesIt() throws Exception {
         createCircle("杭州滨江网球").andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.creator.accountId").value(creator.getId()))
+                .andExpect(jsonPath("$.data.creator.avatarCode").value("PANDA"))
+                .andExpect(jsonPath("$.data.creator.verified").value(true))
                 .andExpect(jsonPath("$.data.status").value("PENDING_REVIEW"));
         Circle circle = findCreatorCircle();
 
@@ -117,4 +120,3 @@ class CircleControllerTests {
                 .eq(Circle::getCreatorAccountId, creator.getId()));
     }
 }
-

@@ -8,6 +8,8 @@ public enum MeetupStatus {
 
     CONFIRMED,
 
+    COMPLETED,
+
     CANCELLED,
 
     TERMINATED

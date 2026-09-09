@@ -10,6 +10,8 @@ public enum MeetupAuditAction {
 
     CONFIRM,
 
+    COMPLETE,
+
     CANCEL,
 
     TERMINATE,

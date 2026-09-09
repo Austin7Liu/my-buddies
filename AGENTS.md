@@ -142,6 +142,18 @@ public enum PostStatus {
 }
 ```
 
+For method parameters, keep all parameter annotations, the type and the variable
+name on the same line. When a method has a single short parameter, keep that
+parameter on the same line as the method name:
+
+```java
+public ApiResponse<ProfileResponse> getPublic(@PathVariable @Positive long accountId) {
+}
+```
+
+This method-parameter rule does not change the separate-line formatting required
+for record components and entity fields.
+
 ## API conventions
 
 - Use `/api/v1`.

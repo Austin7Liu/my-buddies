@@ -7,11 +7,16 @@ import com.austin.module.account.domain.AccountStatus;
 import com.austin.module.account.domain.UserAccount;
 import com.austin.module.account.service.UserAccountService;
 import com.austin.module.identity.service.IdentityVerificationService;
+import com.austin.module.identity.domain.IdentityStatus;
 import com.austin.module.profile.domain.AvatarCode;
 import com.austin.module.profile.domain.UserProfile;
 import com.austin.module.profile.mapper.UserProfileMapper;
+import com.austin.module.profile.mapper.model.ProfileSummaryRow;
 import java.time.Clock;
 import java.time.LocalDateTime;
+import java.util.Collection;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
@@ -38,6 +43,25 @@ public class ProfileServiceImpl implements ProfileService {
     public ProfileView getMine(long accountId) {
         UserAccount account = visibleAccount(accountId);
         return view(account, profileMapper.selectById(accountId));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Map<Long, ProfileSummary> getSummaries(Collection<Long> accountIds) {
+        if (accountIds == null || accountIds.isEmpty()) {
+            return Map.of();
+        }
+        Map<Long, ProfileSummary> summaries = new LinkedHashMap<>();
+        for (ProfileSummaryRow row : profileMapper.selectSummaries(accountIds.stream().distinct().toList())) {
+            boolean cancelled = row.getAccountStatus() == AccountStatus.CANCELLED;
+            summaries.put(row.getAccountId(), new ProfileSummary(
+                    row.getAccountId(),
+                    cancelled ? "已注销用户" : defaultNickname(row),
+                    cancelled || row.getAvatarCode() == null ? AvatarCode.PANDA : row.getAvatarCode(),
+                    !cancelled && row.getIdentityStatus() == IdentityStatus.VERIFIED,
+                    row.getAccountStatus() == AccountStatus.BANNED || cancelled));
+        }
+        return Map.copyOf(summaries);
     }
 
     @Override
@@ -100,5 +124,11 @@ public class ProfileServiceImpl implements ProfileService {
 
     private String trim(String value) {
         return value == null || value.isBlank() ? null : value.trim();
+    }
+
+    private String defaultNickname(ProfileSummaryRow row) {
+        return row.getNickname() == null
+                ? "伙伴_" + String.format("%06d", row.getAccountId() % 1_000_000)
+                : row.getNickname();
     }
 }

@@ -5,12 +5,18 @@ import com.austin.common.model.PageResponse;
 import com.austin.module.post.controller.request.CreatePostRequest;
 import com.austin.module.post.controller.request.UpdatePostRequest;
 import com.austin.module.post.controller.response.PostResponse;
+import com.austin.module.post.domain.Post;
 import com.austin.module.post.domain.PostStatus;
 import com.austin.module.post.service.PostService;
+import com.austin.module.profile.controller.response.ProfileSummaryResponse;
+import com.austin.module.profile.service.ProfileService;
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Positive;
+import java.util.List;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -32,12 +38,13 @@ import org.springframework.web.bind.annotation.RestController;
 public class PostController {
 
     private final PostService postService;
+    private final ProfileService profileService;
 
     @GetMapping("/posts")
     public ApiResponse<PageResponse<PostResponse>> listPublic(
             @RequestParam(defaultValue = "1") @Min(1) long page,
             @RequestParam(defaultValue = "20") @Min(1) @Max(100) long size) {
-        return ApiResponse.success(PageResponse.from(postService.listPublic(page, size), PostResponse::from));
+        return ApiResponse.success(responsePage(postService.listPublic(page, size)));
     }
 
     @GetMapping("/topics/{topicId}/posts")
@@ -45,8 +52,7 @@ public class PostController {
             @PathVariable @Positive long topicId,
             @RequestParam(defaultValue = "1") @Min(1) long page,
             @RequestParam(defaultValue = "20") @Min(1) @Max(100) long size) {
-        return ApiResponse.success(PageResponse.from(
-                postService.listByTopic(topicId, page, size), PostResponse::from));
+        return ApiResponse.success(responsePage(postService.listByTopic(topicId, page, size)));
     }
 
     @GetMapping("/circles/{circleId}/posts")
@@ -54,13 +60,12 @@ public class PostController {
             @PathVariable @Positive long circleId,
             @RequestParam(defaultValue = "1") @Min(1) long page,
             @RequestParam(defaultValue = "20") @Min(1) @Max(100) long size) {
-        return ApiResponse.success(PageResponse.from(
-                postService.listByCircle(circleId, page, size), PostResponse::from));
+        return ApiResponse.success(responsePage(postService.listByCircle(circleId, page, size)));
     }
 
     @GetMapping("/posts/{postId}")
     public ApiResponse<PostResponse> getPublic(@PathVariable @Positive long postId) {
-        return ApiResponse.success(PostResponse.from(postService.getPublic(postId)));
+        return ApiResponse.success(response(postService.getPublic(postId)));
     }
 
     @GetMapping("/posts/mine")
@@ -70,15 +75,15 @@ public class PostController {
             @RequestParam(required = false) PostStatus status,
             @RequestParam(defaultValue = "1") @Min(1) long page,
             @RequestParam(defaultValue = "20") @Min(1) @Max(100) long size) {
-        return ApiResponse.success(PageResponse.from(
-                postService.listMine(accountId(authentication), status, page, size), PostResponse::from));
+        return ApiResponse.success(responsePage(
+                postService.listMine(accountId(authentication), status, page, size)));
     }
 
     @PostMapping("/posts")
     public ApiResponse<PostResponse> create(
             Authentication authentication,
             @Valid @RequestBody CreatePostRequest request) {
-        return ApiResponse.success(PostResponse.from(postService.create(accountId(authentication), request.content(),
+        return ApiResponse.success(response(postService.create(accountId(authentication), request.content(),
                 request.topicId(), request.circleId())));
     }
 
@@ -87,7 +92,7 @@ public class PostController {
             Authentication authentication,
             @PathVariable @Positive long postId,
             @Valid @RequestBody UpdatePostRequest request) {
-        return ApiResponse.success(PostResponse.from(
+        return ApiResponse.success(response(
                 postService.update(accountId(authentication), postId, request.content())));
     }
 
@@ -95,7 +100,20 @@ public class PostController {
     public ApiResponse<PostResponse> delete(
             Authentication authentication,
             @PathVariable @Positive long postId) {
-        return ApiResponse.success(PostResponse.from(postService.delete(accountId(authentication), postId)));
+        return ApiResponse.success(response(postService.delete(accountId(authentication), postId)));
+    }
+
+    private PageResponse<PostResponse> responsePage(IPage<Post> page) {
+        Map<Long, ProfileService.ProfileSummary> summaries = profileService.getSummaries(
+                page.getRecords().stream().map(Post::getAuthorAccountId).toList());
+        return PageResponse.from(page, post -> PostResponse.from(post,
+                ProfileSummaryResponse.from(summaries.get(post.getAuthorAccountId()))));
+    }
+
+    private PostResponse response(Post post) {
+        var summary = profileService.getSummaries(List.of(post.getAuthorAccountId()))
+                .get(post.getAuthorAccountId());
+        return PostResponse.from(post, ProfileSummaryResponse.from(summary));
     }
 
     private long accountId(Authentication authentication) {

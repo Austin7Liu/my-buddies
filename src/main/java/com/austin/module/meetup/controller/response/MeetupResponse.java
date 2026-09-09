@@ -5,11 +5,13 @@ import com.austin.module.meetup.domain.Meetup;
 import com.austin.module.meetup.domain.MeetupMode;
 import com.austin.module.meetup.domain.MeetupOnlineDetail;
 import com.austin.module.meetup.domain.MeetupStatus;
+import com.austin.module.profile.controller.response.ProfileSummaryResponse;
 import java.time.LocalDateTime;
 
 public record MeetupResponse(
         Long id,
         Long creatorAccountId,
+        ProfileSummaryResponse creator,
         Long topicId,
         Long circleId,
         MeetupMode meetupMode,
@@ -34,15 +36,17 @@ public record MeetupResponse(
         String skillRequirement,
         MeetupStatus status,
         String closedReason,
+        LocalDateTime completedAt,
         LocalDateTime createdAt,
         LocalDateTime updatedAt) {
 
     public static MeetupResponse from(
             Meetup meetup,
             MeetupOnlineDetail onlineDetail,
+            ProfileSummaryResponse creator,
             long acceptedCount,
             boolean exposePrivateDetails) {
-        return new MeetupResponse(meetup.getId(), meetup.getCreatorAccountId(), meetup.getTopicId(),
+        return new MeetupResponse(meetup.getId(), meetup.getCreatorAccountId(), creator, meetup.getTopicId(),
                 meetup.getCircleId(), meetup.getMeetupMode(), meetup.getTitle(), meetup.getDescription(), meetup.getStartTime(),
                 meetup.getEndTime(), meetup.getApplicationDeadline(), meetup.getCity(), meetup.getDistrict(),
                 meetup.getLocationName(), exposePrivateDetails ? meetup.getAddress() : null,
@@ -52,6 +56,7 @@ public record MeetupResponse(
                 meetup.getCapacity(),
                 acceptedCount, Math.max(0, meetup.getCapacity() - acceptedCount), meetup.getMinimumAge(),
                 meetup.getMaximumAge(), meetup.getGenderRequirement(), meetup.getSkillRequirement(),
-                meetup.getStatus(), meetup.getClosedReason(), meetup.getCreatedAt(), meetup.getUpdatedAt());
+                meetup.getStatus(), meetup.getClosedReason(), meetup.getCompletedAt(), meetup.getCreatedAt(),
+                meetup.getUpdatedAt());
     }
 }

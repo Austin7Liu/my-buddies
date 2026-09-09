@@ -76,6 +76,9 @@ public class Meetup {
     @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private LocalDateTime closedAt;
 
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
+    private LocalDateTime completedAt;
+
     @Version
     private Integer version;
 

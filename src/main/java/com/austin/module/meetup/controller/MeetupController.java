@@ -9,12 +9,18 @@ import com.austin.module.meetup.controller.request.UpdateMeetupRequest;
 import com.austin.module.meetup.controller.response.MeetupParticipantResponse;
 import com.austin.module.meetup.controller.response.MeetupResponse;
 import com.austin.module.meetup.domain.Meetup;
+import com.austin.module.meetup.domain.MeetupParticipant;
 import com.austin.module.meetup.service.MeetupCommand;
 import com.austin.module.meetup.service.MeetupService;
+import com.austin.module.profile.controller.response.ProfileSummaryResponse;
+import com.austin.module.profile.service.ProfileService;
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Positive;
+import java.util.List;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -35,6 +41,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class MeetupController {
 
     private final MeetupService meetupService;
+    private final ProfileService profileService;
 
     @GetMapping("/meetups")
     public ApiResponse<PageResponse<MeetupResponse>> listPublic(
@@ -42,8 +49,8 @@ public class MeetupController {
             @RequestParam(required = false) @Positive Long circleId,
             @RequestParam(defaultValue = "1") @Min(1) long page,
             @RequestParam(defaultValue = "20") @Min(1) @Max(100) long size) {
-        return ApiResponse.success(PageResponse.from(meetupService.listPublic(topicId, circleId, page, size),
-                meetup -> response(meetup, false)));
+        return ApiResponse.success(responsePage(
+                meetupService.listPublic(topicId, circleId, page, size), null));
     }
 
     @GetMapping("/topics/{topicId}/meetups")
@@ -51,8 +58,7 @@ public class MeetupController {
             @PathVariable @Positive long topicId,
             @RequestParam(defaultValue = "1") @Min(1) long page,
             @RequestParam(defaultValue = "20") @Min(1) @Max(100) long size) {
-        return ApiResponse.success(PageResponse.from(meetupService.listPublic(topicId, null, page, size),
-                meetup -> response(meetup, false)));
+        return ApiResponse.success(responsePage(meetupService.listPublic(topicId, null, page, size), null));
     }
 
     @GetMapping("/circles/{circleId}/meetups")
@@ -60,8 +66,7 @@ public class MeetupController {
             @PathVariable @Positive long circleId,
             @RequestParam(defaultValue = "1") @Min(1) long page,
             @RequestParam(defaultValue = "20") @Min(1) @Max(100) long size) {
-        return ApiResponse.success(PageResponse.from(meetupService.listPublic(null, circleId, page, size),
-                meetup -> response(meetup, false)));
+        return ApiResponse.success(responsePage(meetupService.listPublic(null, circleId, page, size), null));
     }
 
     @GetMapping("/meetups/{meetupId}")
@@ -80,9 +85,7 @@ public class MeetupController {
             @RequestParam(defaultValue = "1") @Min(1) long page,
             @RequestParam(defaultValue = "20") @Min(1) @Max(100) long size) {
         long viewerId = accountId(authentication);
-        return ApiResponse.success(PageResponse.from(
-                meetupService.listMine(viewerId, page, size),
-                meetup -> response(meetup, meetupService.canSeePrivateDetails(viewerId, meetup))));
+        return ApiResponse.success(responsePage(meetupService.listMine(viewerId, page, size), viewerId));
     }
 
     @PostMapping("/meetups")
@@ -117,6 +120,13 @@ public class MeetupController {
         return ApiResponse.success(response(meetupService.confirm(accountId(authentication), meetupId), true));
     }
 
+    @PostMapping("/meetups/{meetupId}/complete")
+    public ApiResponse<MeetupResponse> complete(
+            Authentication authentication,
+            @PathVariable @Positive long meetupId) {
+        return ApiResponse.success(response(meetupService.complete(accountId(authentication), meetupId), true));
+    }
+
     @PostMapping("/meetups/{meetupId}/cancel")
     public ApiResponse<MeetupResponse> cancel(
             Authentication authentication,
@@ -131,7 +141,7 @@ public class MeetupController {
             Authentication authentication,
             @PathVariable @Positive long meetupId,
             @Valid @RequestBody MeetupApplicationRequest request) {
-        return ApiResponse.success(MeetupParticipantResponse.from(
+        return ApiResponse.success(participantResponse(
                 meetupService.apply(accountId(authentication), meetupId, request.message())));
     }
 
@@ -142,9 +152,8 @@ public class MeetupController {
             @PathVariable @Positive long meetupId,
             @RequestParam(defaultValue = "1") @Min(1) long page,
             @RequestParam(defaultValue = "20") @Min(1) @Max(100) long size) {
-        return ApiResponse.success(PageResponse.from(
-                meetupService.listApplications(accountId(authentication), meetupId, page, size),
-                MeetupParticipantResponse::from));
+        return ApiResponse.success(participantPage(
+                meetupService.listApplications(accountId(authentication), meetupId, page, size)));
     }
 
     @PostMapping("/meetups/{meetupId}/applications/{applicantId}/accept")
@@ -152,7 +161,7 @@ public class MeetupController {
             Authentication authentication,
             @PathVariable @Positive long meetupId,
             @PathVariable @Positive long applicantId) {
-        return ApiResponse.success(MeetupParticipantResponse.from(
+        return ApiResponse.success(participantResponse(
                 meetupService.decide(accountId(authentication), meetupId, applicantId, true, null)));
     }
 
@@ -162,7 +171,7 @@ public class MeetupController {
             @PathVariable @Positive long meetupId,
             @PathVariable @Positive long applicantId,
             @Valid @RequestBody ReasonRequest request) {
-        return ApiResponse.success(MeetupParticipantResponse.from(
+        return ApiResponse.success(participantResponse(
                 meetupService.decide(accountId(authentication), meetupId, applicantId, false, request.reason())));
     }
 
@@ -171,13 +180,43 @@ public class MeetupController {
             Authentication authentication,
             @PathVariable @Positive long meetupId,
             @Valid @RequestBody ReasonRequest request) {
-        return ApiResponse.success(MeetupParticipantResponse.from(
+        return ApiResponse.success(participantResponse(
                 meetupService.withdraw(accountId(authentication), meetupId, request.reason())));
     }
 
     private MeetupResponse response(Meetup meetup, boolean exposeAddress) {
+        var summary = profileService.getSummaries(List.of(meetup.getCreatorAccountId()))
+                .get(meetup.getCreatorAccountId());
+        return response(meetup, exposeAddress, ProfileSummaryResponse.from(summary));
+    }
+
+    private MeetupResponse response(
+            Meetup meetup,
+            boolean exposeAddress,
+            ProfileSummaryResponse creator) {
         return MeetupResponse.from(meetup, meetupService.findOnlineDetail(meetup.getId()),
-                meetupService.acceptedCount(meetup.getId()), exposeAddress);
+                creator, meetupService.acceptedCount(meetup.getId()), exposeAddress);
+    }
+
+    private PageResponse<MeetupResponse> responsePage(IPage<Meetup> page, Long viewerId) {
+        Map<Long, ProfileService.ProfileSummary> summaries = profileService.getSummaries(
+                page.getRecords().stream().map(Meetup::getCreatorAccountId).toList());
+        return PageResponse.from(page, meetup -> response(meetup,
+                viewerId != null && meetupService.canSeePrivateDetails(viewerId, meetup),
+                ProfileSummaryResponse.from(summaries.get(meetup.getCreatorAccountId()))));
+    }
+
+    private PageResponse<MeetupParticipantResponse> participantPage(IPage<MeetupParticipant> page) {
+        Map<Long, ProfileService.ProfileSummary> summaries = profileService.getSummaries(
+                page.getRecords().stream().map(MeetupParticipant::getAccountId).toList());
+        return PageResponse.from(page, participant -> MeetupParticipantResponse.from(participant,
+                ProfileSummaryResponse.from(summaries.get(participant.getAccountId()))));
+    }
+
+    private MeetupParticipantResponse participantResponse(MeetupParticipant participant) {
+        var summary = profileService.getSummaries(List.of(participant.getAccountId()))
+                .get(participant.getAccountId());
+        return MeetupParticipantResponse.from(participant, ProfileSummaryResponse.from(summary));
     }
 
     private MeetupCommand command(CreateMeetupRequest request) {

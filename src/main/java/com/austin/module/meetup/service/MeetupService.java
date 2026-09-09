@@ -24,6 +24,8 @@ public interface MeetupService {
 
     Meetup confirm(long creatorId, long meetupId);
 
+    Meetup complete(long creatorId, long meetupId);
+
     Meetup cancel(long creatorId, long meetupId, String reason);
 
     Meetup terminate(long operatorId, long meetupId, String reason);
