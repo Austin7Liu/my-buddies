@@ -4,8 +4,11 @@ import java.time.Duration;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 @ConfigurationProperties("app.jwt")
-public record JwtProperties(String issuer, String secret, Duration accessTokenExpiration,
-                            Duration refreshTokenExpiration) {
+public record JwtProperties(
+        String issuer,
+        String secret,
+        Duration accessTokenExpiration,
+        Duration refreshTokenExpiration) {
 
     public JwtProperties {
         if (issuer == null || issuer.isBlank()) {

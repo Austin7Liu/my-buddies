@@ -1,5 +1,6 @@
 package com.austin.module.identity.provider;
 
-public record IdentityVerificationCommand(String realName, String identityNumber) {
+public record IdentityVerificationCommand(
+        String realName,
+        String identityNumber) {
 }
-

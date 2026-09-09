@@ -318,6 +318,8 @@ public class PostServiceImpl implements PostService {
                 .build());
     }
 
-    private record Association(Long topicId, Long circleId) {
+    private record Association(
+            Long topicId,
+            Long circleId) {
     }
 }

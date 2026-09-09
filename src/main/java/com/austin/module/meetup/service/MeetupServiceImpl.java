@@ -685,6 +685,8 @@ public class MeetupServiceImpl implements MeetupService {
                 .build());
     }
 
-    private record Association(Long topicId, Long circleId) {
+    private record Association(
+            Long topicId,
+            Long circleId) {
     }
 }

@@ -26,6 +26,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.transaction.annotation.Transactional;
 
 @SpringBootTest
@@ -53,7 +54,7 @@ class CircleControllerTests {
 
     @Test
     void circleIsHiddenUntilContentAdminApprovesIt() throws Exception {
-        createCircle("杭州滨江网球").andExpect(status().isOk())
+        createCircle().andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.creator.accountId").value(creator.getId()))
                 .andExpect(jsonPath("$.data.creator.avatarCode").value("PANDA"))
                 .andExpect(jsonPath("$.data.creator.verified").value(true))
@@ -72,7 +73,7 @@ class CircleControllerTests {
 
     @Test
     void sameTopicCannotContainDuplicateCircleName() throws Exception {
-        createCircle("杭州滨江网球").andExpect(status().isOk());
+        createCircle().andExpect(status().isOk());
         UserAccount another = accountService.create("13900139402");
         identityService.submit(another.getId(), "另一用户", "110105198806150016");
         mockMvc.perform(post("/api/v1/circles").with(user(another.getId().toString()))
@@ -92,7 +93,8 @@ class CircleControllerTests {
 
     @Test
     void rejectedCircleCanBeEditedAndResubmitted() throws Exception {
-        createCircle("杭州滨江网球").andExpect(status().isOk()); Circle circle = findCreatorCircle();
+        createCircle().andExpect(status().isOk());
+        Circle circle = findCreatorCircle();
         mockMvc.perform(post("/api/v1/admin/circles/{circleId}/reject", circle.getId())
                         .with(user(reviewer.getId().toString()).roles("CONTENT_ADMIN"))
                         .contentType(MediaType.APPLICATION_JSON).content("{\"reason\":\"名称需要更具体\"}"))
@@ -105,9 +107,9 @@ class CircleControllerTests {
         assertThat(circleMapper.selectById(circle.getId()).getStatus()).isEqualTo(CircleStatus.PENDING_REVIEW);
     }
 
-    private org.springframework.test.web.servlet.ResultActions createCircle(String name) throws Exception {
+    private ResultActions createCircle() throws Exception {
         return mockMvc.perform(post("/api/v1/circles").with(user(creator.getId().toString()))
-                .contentType(MediaType.APPLICATION_JSON).content(body(name)));
+                .contentType(MediaType.APPLICATION_JSON).content(body("杭州滨江网球")));
     }
 
     private String body(String name) {

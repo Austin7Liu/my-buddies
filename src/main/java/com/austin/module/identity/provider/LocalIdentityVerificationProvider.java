@@ -5,6 +5,7 @@ import com.austin.module.identity.domain.Gender;
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
 import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.HexFormat;
 import javax.crypto.Mac;
@@ -37,7 +38,7 @@ public class LocalIdentityVerificationProvider implements IdentityVerificationPr
         }
         try {
             LocalDate birthDate = LocalDate.parse(number.substring(6, 14),
-                    java.time.format.DateTimeFormatter.BASIC_ISO_DATE);
+                    DateTimeFormatter.BASIC_ISO_DATE);
             Gender gender = ((number.charAt(16) - '0') % 2 == 0) ? Gender.FEMALE : Gender.MALE;
             String fingerprint = hmacSha256(number);
             return new IdentityProviderResult(true, fingerprint, birthDate, gender, PROVIDER,
@@ -68,4 +69,3 @@ public class LocalIdentityVerificationProvider implements IdentityVerificationPr
         }
     }
 }
-

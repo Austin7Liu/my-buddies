@@ -31,6 +31,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.transaction.annotation.Transactional;
 
 @SpringBootTest
@@ -175,7 +176,7 @@ class PostControllerTests {
         assertThat(auditMapper.selectCount(null)).isEqualTo(5);
     }
 
-    private org.springframework.test.web.servlet.ResultActions createPost(String body) throws Exception {
+    private ResultActions createPost(String body) throws Exception {
         return mockMvc.perform(post("/api/v1/posts")
                 .with(user(author.getId().toString()))
                 .contentType(MediaType.APPLICATION_JSON)

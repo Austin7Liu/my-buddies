@@ -4,8 +4,11 @@ import java.time.Duration;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 @ConfigurationProperties("app.sms-code")
-public record SmsCodeProperties(Duration expiration, Duration resendCooldown,
-                                int maxFailedAttempts, Duration lockDuration) {
+public record SmsCodeProperties(
+        Duration expiration,
+        Duration resendCooldown,
+        int maxFailedAttempts,
+        Duration lockDuration) {
 
     public SmsCodeProperties {
         if (expiration == null || expiration.isNegative() || expiration.isZero()) {

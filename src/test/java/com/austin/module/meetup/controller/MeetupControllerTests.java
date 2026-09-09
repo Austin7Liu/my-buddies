@@ -16,6 +16,8 @@ import com.austin.module.circle.service.CircleService;
 import com.austin.module.identity.service.IdentityVerificationService;
 import com.austin.module.meetup.domain.Meetup;
 import com.austin.module.meetup.domain.MeetupAuditAction;
+import com.austin.module.meetup.domain.MeetupAuditLog;
+import com.austin.module.meetup.domain.MeetupParticipant;
 import com.austin.module.meetup.domain.ParticipantRole;
 import com.austin.module.meetup.domain.ParticipantStatus;
 import com.austin.module.meetup.mapper.MeetupAuditLogMapper;
@@ -32,6 +34,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.transaction.annotation.Transactional;
 
 @SpringBootTest
@@ -97,9 +100,9 @@ class MeetupControllerTests {
                 .andExpect(jsonPath("$.data.remainingSlots").value(3));
 
         Meetup meetup = findMeetup();
-        var creatorParticipant = participantMapper.selectOne(new LambdaQueryWrapper<com.austin.module.meetup.domain.MeetupParticipant>()
-                .eq(com.austin.module.meetup.domain.MeetupParticipant::getMeetupId, meetup.getId())
-                .eq(com.austin.module.meetup.domain.MeetupParticipant::getAccountId, creator.getId()));
+        var creatorParticipant = participantMapper.selectOne(new LambdaQueryWrapper<MeetupParticipant>()
+                .eq(MeetupParticipant::getMeetupId, meetup.getId())
+                .eq(MeetupParticipant::getAccountId, creator.getId()));
         assertThat(creatorParticipant.getRole()).isEqualTo(ParticipantRole.CREATOR);
         assertThat(creatorParticipant.getStatus()).isEqualTo(ParticipantStatus.ACCEPTED);
     }
@@ -193,9 +196,9 @@ class MeetupControllerTests {
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.error.message").value("只有已确认活动可以完成"));
 
-        assertThat(auditMapper.selectCount(new LambdaQueryWrapper<com.austin.module.meetup.domain.MeetupAuditLog>()
-                .eq(com.austin.module.meetup.domain.MeetupAuditLog::getMeetupId, meetup.getId())
-                .eq(com.austin.module.meetup.domain.MeetupAuditLog::getAction, MeetupAuditAction.COMPLETE)))
+        assertThat(auditMapper.selectCount(new LambdaQueryWrapper<MeetupAuditLog>()
+                .eq(MeetupAuditLog::getMeetupId, meetup.getId())
+                .eq(MeetupAuditLog::getAction, MeetupAuditAction.COMPLETE)))
                 .isEqualTo(1);
     }
 
@@ -326,7 +329,7 @@ class MeetupControllerTests {
         return account;
     }
 
-    private org.springframework.test.web.servlet.ResultActions createMeetup(Long topicId, Long circleId,
+    private ResultActions createMeetup(Long topicId, Long circleId,
             int capacity) throws Exception {
         return mockMvc.perform(post("/api/v1/meetups")
                 .with(user(creator.getId().toString()))

@@ -22,6 +22,7 @@ import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.Locale;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -115,7 +116,7 @@ public class AuthService {
     }
 
     private TokenPair issueTokenPair(long accountId) {
-        return issueTokenPair(accountId, java.util.UUID.randomUUID().toString());
+        return issueTokenPair(accountId, UUID.randomUUID().toString());
     }
 
     private TokenPair issueTokenPair(long accountId, String sessionId) {
@@ -136,5 +137,8 @@ public class AuthService {
         }
     }
 
-    public record AuthResult(UserAccount account, TokenPair tokens) { }
+    public record AuthResult(
+            UserAccount account,
+            TokenPair tokens) {
+    }
 }

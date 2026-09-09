@@ -4,7 +4,8 @@ import java.time.Duration;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 @ConfigurationProperties("app.account")
-public record AccountProperties(Duration cancellationCoolingOffPeriod) {
+public record AccountProperties(
+        Duration cancellationCoolingOffPeriod) {
 
     public AccountProperties {
         if (cancellationCoolingOffPeriod == null || cancellationCoolingOffPeriod.isNegative()
