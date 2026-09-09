@@ -2,11 +2,15 @@ package com.austin.module.meetup.controller;
 
 import com.austin.common.model.ApiResponse;
 import com.austin.common.model.PageResponse;
+import com.austin.module.meetup.controller.request.AdjustMeetupFulfillmentRequest;
 import com.austin.module.meetup.controller.request.ReasonRequest;
+import com.austin.module.meetup.controller.response.MeetupFulfillmentResponse;
 import com.austin.module.meetup.controller.response.MeetupResponse;
+import com.austin.module.meetup.domain.MeetupFulfillment;
 import com.austin.module.meetup.domain.MeetupStatus;
 import com.austin.module.meetup.domain.Meetup;
 import com.austin.module.meetup.service.MeetupService;
+import com.austin.module.meetup.service.MeetupFulfillmentService;
 import com.austin.module.profile.controller.response.ProfileSummaryResponse;
 import com.austin.module.profile.service.ProfileService;
 import com.baomidou.mybatisplus.core.metadata.IPage;
@@ -22,6 +26,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -36,6 +41,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class AdminMeetupController {
 
     private final MeetupService meetupService;
+    private final MeetupFulfillmentService fulfillmentService;
     private final ProfileService profileService;
 
     @GetMapping
@@ -55,6 +61,26 @@ public class AdminMeetupController {
         return ApiResponse.success(response(meetup));
     }
 
+    @GetMapping("/{meetupId}/fulfillments")
+    public ApiResponse<PageResponse<MeetupFulfillmentResponse>> listFulfillments(
+            @PathVariable @Positive long meetupId,
+            @RequestParam(defaultValue = "1") @Min(1) long page,
+            @RequestParam(defaultValue = "20") @Min(1) @Max(100) long size) {
+        return ApiResponse.success(fulfillmentPage(
+                fulfillmentService.listForAdmin(meetupId, page, size)));
+    }
+
+    @PatchMapping("/{meetupId}/fulfillments/{accountId}")
+    public ApiResponse<MeetupFulfillmentResponse> adjustFulfillment(
+            Authentication authentication,
+            @PathVariable @Positive long meetupId,
+            @PathVariable @Positive long accountId,
+            @Valid @RequestBody AdjustMeetupFulfillmentRequest request) {
+        return ApiResponse.success(fulfillmentResponse(fulfillmentService.adjust(
+                Long.parseLong(authentication.getName()), meetupId, accountId,
+                request.result(), request.reason())));
+    }
+
     private PageResponse<MeetupResponse> responsePage(IPage<Meetup> page) {
         Map<Long, ProfileService.ProfileSummary> summaries = profileService.getSummaries(
                 page.getRecords().stream().map(Meetup::getCreatorAccountId).toList());
@@ -69,5 +95,18 @@ public class AdminMeetupController {
                 .get(meetup.getCreatorAccountId());
         return MeetupResponse.from(meetup, meetupService.findOnlineDetail(meetup.getId()),
                 ProfileSummaryResponse.from(summary), meetupService.acceptedCount(meetup.getId()), false);
+    }
+
+    private PageResponse<MeetupFulfillmentResponse> fulfillmentPage(IPage<MeetupFulfillment> page) {
+        Map<Long, ProfileService.ProfileSummary> summaries = profileService.getSummaries(
+                page.getRecords().stream().map(MeetupFulfillment::getAccountId).toList());
+        return PageResponse.from(page, fulfillment -> MeetupFulfillmentResponse.from(fulfillment,
+                ProfileSummaryResponse.from(summaries.get(fulfillment.getAccountId()))));
+    }
+
+    private MeetupFulfillmentResponse fulfillmentResponse(MeetupFulfillment fulfillment) {
+        var summary = profileService.getSummaries(List.of(fulfillment.getAccountId()))
+                .get(fulfillment.getAccountId());
+        return MeetupFulfillmentResponse.from(fulfillment, ProfileSummaryResponse.from(summary));
     }
 }

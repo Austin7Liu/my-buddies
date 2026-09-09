@@ -3,6 +3,7 @@ package com.austin.module.meetup.controller;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -17,10 +18,14 @@ import com.austin.module.identity.service.IdentityVerificationService;
 import com.austin.module.meetup.domain.Meetup;
 import com.austin.module.meetup.domain.MeetupAuditAction;
 import com.austin.module.meetup.domain.MeetupAuditLog;
+import com.austin.module.meetup.domain.FulfillmentResult;
+import com.austin.module.meetup.domain.FulfillmentSource;
+import com.austin.module.meetup.domain.MeetupFulfillment;
 import com.austin.module.meetup.domain.MeetupParticipant;
 import com.austin.module.meetup.domain.ParticipantRole;
 import com.austin.module.meetup.domain.ParticipantStatus;
 import com.austin.module.meetup.mapper.MeetupAuditLogMapper;
+import com.austin.module.meetup.mapper.MeetupFulfillmentMapper;
 import com.austin.module.meetup.mapper.MeetupMapper;
 import com.austin.module.meetup.mapper.MeetupParticipantMapper;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
@@ -68,6 +73,9 @@ class MeetupControllerTests {
 
     @Autowired
     private MeetupAuditLogMapper auditMapper;
+
+    @Autowired
+    private MeetupFulfillmentMapper fulfillmentMapper;
 
     private UserAccount creator;
     private UserAccount applicant;
@@ -196,9 +204,42 @@ class MeetupControllerTests {
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.error.message").value("只有已确认活动可以完成"));
 
+        assertThat(fulfillmentMapper.selectList(new LambdaQueryWrapper<MeetupFulfillment>()
+                .eq(MeetupFulfillment::getMeetupId, meetup.getId())))
+                .hasSize(2)
+                .allSatisfy(fulfillment -> {
+                    assertThat(fulfillment.getResult()).isEqualTo(FulfillmentResult.ABSENT);
+                    assertThat(fulfillment.getSource()).isEqualTo(FulfillmentSource.SYSTEM);
+                });
+        mockMvc.perform(get("/api/v1/meetups/{meetupId}/fulfillment/me", meetup.getId())
+                        .with(user(applicant.getId().toString())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.result").value("ABSENT"));
+        mockMvc.perform(get("/api/v1/meetups/{meetupId}/fulfillments", meetup.getId())
+                        .with(user(applicant.getId().toString())))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/v1/meetups/{meetupId}/fulfillments", meetup.getId())
+                        .with(user(creator.getId().toString())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total").value(2));
+
+        mockMvc.perform(patch("/api/v1/admin/meetups/{meetupId}/fulfillments/{accountId}",
+                        meetup.getId(), applicant.getId())
+                        .with(user(moderator.getId().toString()).roles("CONTENT_ADMIN"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"result\":\"EXCUSED\",\"reason\":\"定位异常，人工核实\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.result").value("EXCUSED"))
+                .andExpect(jsonPath("$.data.source").value("ADMIN_OVERRIDE"))
+                .andExpect(jsonPath("$.data.adjustedBy").value(moderator.getId()));
+
         assertThat(auditMapper.selectCount(new LambdaQueryWrapper<MeetupAuditLog>()
                 .eq(MeetupAuditLog::getMeetupId, meetup.getId())
                 .eq(MeetupAuditLog::getAction, MeetupAuditAction.COMPLETE)))
+                .isEqualTo(1);
+        assertThat(auditMapper.selectCount(new LambdaQueryWrapper<MeetupAuditLog>()
+                .eq(MeetupAuditLog::getMeetupId, meetup.getId())
+                .eq(MeetupAuditLog::getAction, MeetupAuditAction.ADJUST_RESULT)))
                 .isEqualTo(1);
     }
 
@@ -258,6 +299,19 @@ class MeetupControllerTests {
                         .with(user(creator.getId().toString())))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.total").value(1));
+
+        Meetup started = meetupMapper.selectById(meetup.getId());
+        started.setEndTime(LocalDateTime.now().minusMinutes(1));
+        assertThat(meetupMapper.updateById(started)).isEqualTo(1);
+        mockMvc.perform(post("/api/v1/meetups/{meetupId}/complete", meetup.getId())
+                        .with(user(creator.getId().toString())))
+                .andExpect(status().isOk());
+        MeetupFulfillment applicantFulfillment = fulfillmentMapper.selectOne(
+                new LambdaQueryWrapper<MeetupFulfillment>()
+                        .eq(MeetupFulfillment::getMeetupId, meetup.getId())
+                        .eq(MeetupFulfillment::getAccountId, applicant.getId()));
+        assertThat(applicantFulfillment.getResult()).isEqualTo(FulfillmentResult.ATTENDED);
+        assertThat(applicantFulfillment.getSource()).isEqualTo(FulfillmentSource.CHECK_IN);
     }
 
     @Test
@@ -330,6 +384,23 @@ class MeetupControllerTests {
                         .with(user(applicant.getId().toString())))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.accessInstructions").value("接受后由创建者发送房间号"));
+
+        mockMvc.perform(post("/api/v1/meetups/{meetupId}/confirm", meetup.getId())
+                        .with(user(creator.getId().toString())))
+                .andExpect(status().isOk());
+        Meetup confirmed = meetupMapper.selectById(meetup.getId());
+        LocalDateTime now = LocalDateTime.now();
+        confirmed.setApplicationDeadline(now.minusHours(3));
+        confirmed.setStartTime(now.minusHours(2));
+        confirmed.setEndTime(now.minusHours(1));
+        assertThat(meetupMapper.updateById(confirmed)).isEqualTo(1);
+        mockMvc.perform(post("/api/v1/meetups/{meetupId}/complete", meetup.getId())
+                        .with(user(creator.getId().toString())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("COMPLETED"));
+        assertThat(fulfillmentMapper.selectCount(new LambdaQueryWrapper<MeetupFulfillment>()
+                .eq(MeetupFulfillment::getMeetupId, meetup.getId())))
+                .isZero();
     }
 
     @Test

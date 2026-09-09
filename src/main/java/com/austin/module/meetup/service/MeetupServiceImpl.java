@@ -53,6 +53,7 @@ public class MeetupServiceImpl implements MeetupService {
     private final MeetupOnlineDetailMapper onlineDetailMapper;
     private final MeetupParticipantMapper participantMapper;
     private final MeetupAuditLogMapper auditMapper;
+    private final MeetupFulfillmentService fulfillmentService;
     private final UserAccountService accountService;
     private final IdentityVerificationService identityService;
     private final AgeEligibilityPolicy agePolicy;
@@ -245,6 +246,7 @@ public class MeetupServiceImpl implements MeetupService {
         if (meetup.getEndTime().isAfter(now)) {
             throw new ConflictException("活动结束后才能完成");
         }
+        fulfillmentService.settle(meetup, now);
         meetup.setStatus(MeetupStatus.COMPLETED);
         meetup.setCompletedAt(now);
         meetup.setUpdatedAt(now);

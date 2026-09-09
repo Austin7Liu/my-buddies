@@ -9,11 +9,14 @@ import com.austin.module.meetup.controller.request.ReasonRequest;
 import com.austin.module.meetup.controller.request.UpdateMeetupRequest;
 import com.austin.module.meetup.controller.response.MeetupParticipantResponse;
 import com.austin.module.meetup.controller.response.MeetupCheckInResponse;
+import com.austin.module.meetup.controller.response.MeetupFulfillmentResponse;
 import com.austin.module.meetup.controller.response.MeetupResponse;
 import com.austin.module.meetup.domain.Meetup;
+import com.austin.module.meetup.domain.MeetupFulfillment;
 import com.austin.module.meetup.domain.MeetupParticipant;
 import com.austin.module.meetup.service.MeetupCommand;
 import com.austin.module.meetup.service.MeetupCheckInService;
+import com.austin.module.meetup.service.MeetupFulfillmentService;
 import com.austin.module.meetup.service.MeetupService;
 import com.austin.module.profile.controller.response.ProfileSummaryResponse;
 import com.austin.module.profile.service.ProfileService;
@@ -45,6 +48,7 @@ public class MeetupController {
 
     private final MeetupService meetupService;
     private final MeetupCheckInService checkInService;
+    private final MeetupFulfillmentService fulfillmentService;
     private final ProfileService profileService;
 
     @GetMapping("/meetups")
@@ -219,6 +223,26 @@ public class MeetupController {
                 MeetupCheckInResponse::from));
     }
 
+    @GetMapping("/meetups/{meetupId}/fulfillment/me")
+    @PreAuthorize("isAuthenticated()")
+    public ApiResponse<MeetupFulfillmentResponse> getMyFulfillment(
+            Authentication authentication,
+            @PathVariable @Positive long meetupId) {
+        return ApiResponse.success(fulfillmentResponse(
+                fulfillmentService.getMine(accountId(authentication), meetupId)));
+    }
+
+    @GetMapping("/meetups/{meetupId}/fulfillments")
+    @PreAuthorize("isAuthenticated()")
+    public ApiResponse<PageResponse<MeetupFulfillmentResponse>> listFulfillments(
+            Authentication authentication,
+            @PathVariable @Positive long meetupId,
+            @RequestParam(defaultValue = "1") @Min(1) long page,
+            @RequestParam(defaultValue = "20") @Min(1) @Max(100) long size) {
+        return ApiResponse.success(fulfillmentPage(
+                fulfillmentService.list(accountId(authentication), meetupId, page, size)));
+    }
+
     private MeetupResponse response(Meetup meetup, boolean exposeAddress) {
         var summary = profileService.getSummaries(List.of(meetup.getCreatorAccountId()))
                 .get(meetup.getCreatorAccountId());
@@ -252,6 +276,19 @@ public class MeetupController {
         var summary = profileService.getSummaries(List.of(participant.getAccountId()))
                 .get(participant.getAccountId());
         return MeetupParticipantResponse.from(participant, ProfileSummaryResponse.from(summary));
+    }
+
+    private PageResponse<MeetupFulfillmentResponse> fulfillmentPage(IPage<MeetupFulfillment> page) {
+        Map<Long, ProfileService.ProfileSummary> summaries = profileService.getSummaries(
+                page.getRecords().stream().map(MeetupFulfillment::getAccountId).toList());
+        return PageResponse.from(page, fulfillment -> MeetupFulfillmentResponse.from(fulfillment,
+                ProfileSummaryResponse.from(summaries.get(fulfillment.getAccountId()))));
+    }
+
+    private MeetupFulfillmentResponse fulfillmentResponse(MeetupFulfillment fulfillment) {
+        var summary = profileService.getSummaries(List.of(fulfillment.getAccountId()))
+                .get(fulfillment.getAccountId());
+        return MeetupFulfillmentResponse.from(fulfillment, ProfileSummaryResponse.from(summary));
     }
 
     private MeetupCommand command(CreateMeetupRequest request) {

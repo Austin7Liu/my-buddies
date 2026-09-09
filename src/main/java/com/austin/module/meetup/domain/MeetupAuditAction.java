@@ -14,6 +14,8 @@ public enum MeetupAuditAction {
 
     CHECK_IN,
 
+    ADJUST_RESULT,
+
     CANCEL,
 
     TERMINATE,
