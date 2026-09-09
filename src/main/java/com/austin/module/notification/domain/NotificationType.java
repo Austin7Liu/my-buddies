@@ -22,5 +22,9 @@ public enum NotificationType {
 
     POST_COMMENTED,
 
-    COMMENT_REPLIED
+    COMMENT_REPLIED,
+
+    REPORT_RESOLVED,
+
+    REPORT_REJECTED
 }

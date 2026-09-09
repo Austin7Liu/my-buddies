@@ -8,5 +8,7 @@ public enum NotificationReferenceType {
 
     RISK_RESTRICTION,
 
-    POST_COMMENT
+    POST_COMMENT,
+
+    CONTENT_REPORT
 }
