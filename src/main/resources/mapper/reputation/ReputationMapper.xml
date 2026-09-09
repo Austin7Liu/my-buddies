@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.austin.module.reputation.mapper.ReputationMapper">
+
+    <select id="selectFulfillmentStats"
+            resultType="com.austin.module.reputation.mapper.model.FulfillmentStatsRow">
+        SELECT COUNT(*) AS fulfillment_count,
+               COALESCE(SUM(CASE WHEN result = 'ATTENDED' THEN 1 ELSE 0 END), 0) AS attended_count,
+               COALESCE(SUM(CASE WHEN result = 'ABSENT' THEN 1 ELSE 0 END), 0) AS absent_count,
+               COALESCE(SUM(CASE WHEN result = 'EXCUSED' THEN 1 ELSE 0 END), 0) AS excused_count
+        FROM meetup_fulfillment mf
+        JOIN meetup m ON m.id = mf.meetup_id
+        WHERE mf.account_id = #{accountId}
+          AND m.meetup_mode = 'OFFLINE'
+    </select>
+
+    <select id="selectReviewStats"
+            resultType="com.austin.module.reputation.mapper.model.ReviewStatsRow">
+        SELECT COUNT(*) AS review_count,
+               AVG(rating) AS average_rating
+        FROM meetup_review
+        WHERE reviewee_account_id = #{accountId}
+          AND status = 'VISIBLE'
+    </select>
+
+</mapper>

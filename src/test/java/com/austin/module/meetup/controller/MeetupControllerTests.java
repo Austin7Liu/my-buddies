@@ -5,6 +5,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -22,12 +23,17 @@ import com.austin.module.meetup.domain.FulfillmentResult;
 import com.austin.module.meetup.domain.FulfillmentSource;
 import com.austin.module.meetup.domain.MeetupFulfillment;
 import com.austin.module.meetup.domain.MeetupParticipant;
+import com.austin.module.meetup.domain.MeetupReview;
+import com.austin.module.meetup.domain.MeetupReviewAuditAction;
+import com.austin.module.meetup.domain.MeetupReviewAuditLog;
 import com.austin.module.meetup.domain.ParticipantRole;
 import com.austin.module.meetup.domain.ParticipantStatus;
 import com.austin.module.meetup.mapper.MeetupAuditLogMapper;
 import com.austin.module.meetup.mapper.MeetupFulfillmentMapper;
 import com.austin.module.meetup.mapper.MeetupMapper;
 import com.austin.module.meetup.mapper.MeetupParticipantMapper;
+import com.austin.module.meetup.mapper.MeetupReviewAuditLogMapper;
+import com.austin.module.meetup.mapper.MeetupReviewMapper;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -77,6 +83,12 @@ class MeetupControllerTests {
     @Autowired
     private MeetupFulfillmentMapper fulfillmentMapper;
 
+    @Autowired
+    private MeetupReviewMapper reviewMapper;
+
+    @Autowired
+    private MeetupReviewAuditLogMapper reviewAuditMapper;
+
     private UserAccount creator;
     private UserAccount applicant;
     private UserAccount moderator;
@@ -113,6 +125,20 @@ class MeetupControllerTests {
                 .eq(MeetupParticipant::getAccountId, creator.getId()));
         assertThat(creatorParticipant.getRole()).isEqualTo(ParticipantRole.CREATOR);
         assertThat(creatorParticipant.getStatus()).isEqualTo(ParticipantStatus.ACCEPTED);
+    }
+
+    @Test
+    void reputationWithoutHistoryReturnsZeroCountsAndNoRates() throws Exception {
+        mockMvc.perform(get("/api/v1/profiles/{accountId}/reputation", moderator.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.accountId").value(moderator.getId()))
+                .andExpect(jsonPath("$.data.offlineFulfillmentCount").value(0))
+                .andExpect(jsonPath("$.data.attendedCount").value(0))
+                .andExpect(jsonPath("$.data.absentCount").value(0))
+                .andExpect(jsonPath("$.data.excusedCount").value(0))
+                .andExpect(jsonPath("$.data.attendanceRate").doesNotExist())
+                .andExpect(jsonPath("$.data.receivedReviewCount").value(0))
+                .andExpect(jsonPath("$.data.averageRating").doesNotExist());
     }
 
     @Test
@@ -211,6 +237,13 @@ class MeetupControllerTests {
                     assertThat(fulfillment.getResult()).isEqualTo(FulfillmentResult.ABSENT);
                     assertThat(fulfillment.getSource()).isEqualTo(FulfillmentSource.SYSTEM);
                 });
+        mockMvc.perform(post("/api/v1/meetups/{meetupId}/reviews", meetup.getId())
+                        .with(user(applicant.getId().toString()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"revieweeAccountId\":" + creator.getId()
+                                + ",\"rating\":5}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.message").value("只有实际出席的参与者之间可以互评"));
         mockMvc.perform(get("/api/v1/meetups/{meetupId}/fulfillment/me", meetup.getId())
                         .with(user(applicant.getId().toString())))
                 .andExpect(status().isOk())
@@ -232,6 +265,13 @@ class MeetupControllerTests {
                 .andExpect(jsonPath("$.data.result").value("EXCUSED"))
                 .andExpect(jsonPath("$.data.source").value("ADMIN_OVERRIDE"))
                 .andExpect(jsonPath("$.data.adjustedBy").value(moderator.getId()));
+        mockMvc.perform(get("/api/v1/profiles/{accountId}/reputation", applicant.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.offlineFulfillmentCount").value(1))
+                .andExpect(jsonPath("$.data.attendedCount").value(0))
+                .andExpect(jsonPath("$.data.absentCount").value(0))
+                .andExpect(jsonPath("$.data.excusedCount").value(1))
+                .andExpect(jsonPath("$.data.attendanceRate").doesNotExist());
 
         assertThat(auditMapper.selectCount(new LambdaQueryWrapper<MeetupAuditLog>()
                 .eq(MeetupAuditLog::getMeetupId, meetup.getId())
@@ -292,13 +332,19 @@ class MeetupControllerTests {
                 .andReturn().getResponse().getContentAsString();
         assertThat(repeatedResponse).isEqualTo(firstResponse);
 
+        mockMvc.perform(post("/api/v1/meetups/{meetupId}/check-ins", meetup.getId())
+                        .with(user(creator.getId().toString()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(nearbyLocation))
+                .andExpect(status().isOk());
+
         mockMvc.perform(get("/api/v1/meetups/{meetupId}/check-ins", meetup.getId())
                         .with(user(applicant.getId().toString())))
                 .andExpect(status().isForbidden());
         mockMvc.perform(get("/api/v1/meetups/{meetupId}/check-ins", meetup.getId())
-                        .with(user(creator.getId().toString())))
+                .with(user(creator.getId().toString())))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.total").value(1));
+                .andExpect(jsonPath("$.data.total").value(2));
 
         Meetup started = meetupMapper.selectById(meetup.getId());
         started.setEndTime(LocalDateTime.now().minusMinutes(1));
@@ -312,6 +358,77 @@ class MeetupControllerTests {
                         .eq(MeetupFulfillment::getAccountId, applicant.getId()));
         assertThat(applicantFulfillment.getResult()).isEqualTo(FulfillmentResult.ATTENDED);
         assertThat(applicantFulfillment.getSource()).isEqualTo(FulfillmentSource.CHECK_IN);
+
+        mockMvc.perform(post("/api/v1/meetups/{meetupId}/reviews", meetup.getId())
+                        .with(user(applicant.getId().toString()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"revieweeAccountId\":" + creator.getId()
+                                + ",\"rating\":5,\"comment\":\"准时友善\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.rating").value(5))
+                .andExpect(jsonPath("$.data.reviewer.accountId").value(applicant.getId()))
+                .andExpect(jsonPath("$.data.reviewee.accountId").value(creator.getId()));
+        MeetupReview review = reviewMapper.selectOne(new LambdaQueryWrapper<MeetupReview>()
+                .eq(MeetupReview::getMeetupId, meetup.getId())
+                .eq(MeetupReview::getReviewerAccountId, applicant.getId()));
+        mockMvc.perform(post("/api/v1/meetups/{meetupId}/reviews", meetup.getId())
+                        .with(user(applicant.getId().toString()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"revieweeAccountId\":" + creator.getId()
+                                + ",\"rating\":4}"))
+                .andExpect(status().isConflict());
+        mockMvc.perform(put("/api/v1/meetups/{meetupId}/reviews/{reviewId}", meetup.getId(), review.getId())
+                        .with(user(applicant.getId().toString()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"rating\":4,\"comment\":\"沟通顺畅\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.rating").value(4));
+        mockMvc.perform(get("/api/v1/profiles/{accountId}/reviews", creator.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total").value(1));
+        mockMvc.perform(get("/api/v1/profiles/{accountId}/reputation", creator.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.offlineFulfillmentCount").value(1))
+                .andExpect(jsonPath("$.data.attendedCount").value(1))
+                .andExpect(jsonPath("$.data.absentCount").value(0))
+                .andExpect(jsonPath("$.data.excusedCount").value(0))
+                .andExpect(jsonPath("$.data.attendanceRate").value(100.00))
+                .andExpect(jsonPath("$.data.receivedReviewCount").value(1))
+                .andExpect(jsonPath("$.data.averageRating").value(4.00));
+        mockMvc.perform(patch("/api/v1/admin/meetup-reviews/{reviewId}/hide", review.getId())
+                        .with(user(moderator.getId().toString()).roles("CONTENT_ADMIN"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reason\":\"包含不当内容\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("HIDDEN"));
+        mockMvc.perform(get("/api/v1/profiles/{accountId}/reviews", creator.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total").value(0));
+        mockMvc.perform(get("/api/v1/profiles/{accountId}/reputation", creator.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.receivedReviewCount").value(0))
+                .andExpect(jsonPath("$.data.averageRating").doesNotExist());
+        mockMvc.perform(patch("/api/v1/admin/meetup-reviews/{reviewId}/restore", review.getId())
+                        .with(user(moderator.getId().toString()).roles("CONTENT_ADMIN"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reason\":\"复核后恢复\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("VISIBLE"));
+        assertThat(reviewAuditMapper.selectCount(new LambdaQueryWrapper<MeetupReviewAuditLog>()
+                .eq(MeetupReviewAuditLog::getReviewId, review.getId())
+                .in(MeetupReviewAuditLog::getAction,
+                        MeetupReviewAuditAction.HIDE, MeetupReviewAuditAction.RESTORE)))
+                .isEqualTo(2);
+
+        Meetup completed = meetupMapper.selectById(meetup.getId());
+        completed.setCompletedAt(LocalDateTime.now().minusDays(8));
+        assertThat(meetupMapper.updateById(completed)).isEqualTo(1);
+        mockMvc.perform(put("/api/v1/meetups/{meetupId}/reviews/{reviewId}", meetup.getId(), review.getId())
+                        .with(user(applicant.getId().toString()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"rating\":3}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.message").value("活动评价期已结束"));
     }
 
     @Test
