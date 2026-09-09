@@ -108,13 +108,31 @@ public class ContentReportService {
     @Transactional
     public ContentReport resolve(long operatorId, long reportId, String note) {
         ContentReport report = requirePending(reportId);
+        long contentAuthorId;
+        NotificationType authorNotificationType;
+        String authorNotificationTitle;
         if (report.getTargetType() == ReportTargetType.POST) {
+            Post post = postService.getPublic(report.getReportedPostId());
+            contentAuthorId = post.getAuthorAccountId();
+            authorNotificationType = NotificationType.REPORTED_CONTENT_OFFLINED;
+            authorNotificationTitle = "帖子因举报被下架";
             postService.offline(operatorId, report.getReportedPostId(), note.trim());
         } else {
+            PostComment comment = commentMapper.selectById(report.getReportedCommentId());
+            if (comment == null) {
+                throw new ResourceNotFoundException("评论不存在");
+            }
+            contentAuthorId = comment.getAuthorAccountId();
+            authorNotificationType = NotificationType.REPORTED_COMMENT_HIDDEN;
+            authorNotificationTitle = "评论因举报被隐藏";
             commentService.hide(operatorId, report.getReportedCommentId(), note.trim());
         }
-        return handle(operatorId, report, ReportStatus.RESOLVED, ReportAuditAction.RESOLVE,
+        ContentReport handled = handle(operatorId, report, ReportStatus.RESOLVED, ReportAuditAction.RESOLVE,
                 note.trim(), NotificationType.REPORT_RESOLVED, "举报已处理");
+        notificationService.notify(contentAuthorId, authorNotificationType, authorNotificationTitle,
+                note.trim(), NotificationReferenceType.CONTENT_REPORT, reportId,
+                "content-report:" + reportId + ":author-action");
+        return handled;
     }
 
     @Transactional

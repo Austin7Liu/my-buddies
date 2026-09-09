@@ -42,8 +42,10 @@ When the user explicitly says `执行`, `实现`, `修改` or `修复`:
 - Run compilation, tests and `git diff --check`.
 - Report changed files, behavior, test results and limitations.
 
-Creating a Flyway migration file does not automatically authorize applying it
-to the user's real MySQL database.
+When an explicitly authorized implementation creates a new Flyway migration,
+apply it to the real development MySQL database in the same delivery, verify the
+result, and synchronize the technical document. The user does not need to issue
+a separate database-application request.
 
 ## Runtime and database
 

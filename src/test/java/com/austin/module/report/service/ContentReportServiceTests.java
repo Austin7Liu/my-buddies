@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.when;
 
 import com.austin.common.exception.ConflictException;
@@ -114,13 +115,17 @@ class ContentReportServiceTests {
                 .status(ReportStatus.PENDING).version(0).build();
         when(reportMapper.selectById(30L)).thenReturn(report);
         when(reportMapper.updateById(report)).thenReturn(1);
+        when(commentMapper.selectById(20L)).thenReturn(PostComment.builder()
+                .id(20L).postId(10L).authorAccountId(1L)
+                .status(PostCommentStatus.VISIBLE).content("被举报评论").build());
 
         ContentReport result = service.resolve(99L, 30L, "确认违规");
 
         assertThat(result.getStatus()).isEqualTo(ReportStatus.RESOLVED);
         verify(commentService).hide(99L, 20L, "确认违规");
         verify(auditMapper).insert(any(ContentReportAuditLog.class));
-        verify(notificationService).notify(any(Long.class), any(), any(), any(), any(), any(Long.class), any());
+        verify(notificationService, times(2)).notify(any(Long.class), any(), any(), any(), any(),
+                any(Long.class), any());
     }
 
     private void allowReporter(long accountId) {

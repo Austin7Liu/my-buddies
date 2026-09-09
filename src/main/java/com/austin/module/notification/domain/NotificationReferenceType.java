@@ -10,5 +10,7 @@ public enum NotificationReferenceType {
 
     POST_COMMENT,
 
-    CONTENT_REPORT
+    CONTENT_REPORT,
+
+    CONTENT_APPEAL
 }
