@@ -16,6 +16,9 @@ import com.austin.module.meetup.mapper.MeetupFulfillmentMapper;
 import com.austin.module.meetup.mapper.MeetupMapper;
 import com.austin.module.meetup.mapper.MeetupReviewAuditLogMapper;
 import com.austin.module.meetup.mapper.MeetupReviewMapper;
+import com.austin.module.notification.domain.NotificationReferenceType;
+import com.austin.module.notification.domain.NotificationType;
+import com.austin.module.notification.service.NotificationService;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -37,6 +40,7 @@ public class MeetupReviewService {
     private final MeetupReviewMapper reviewMapper;
     private final MeetupReviewAuditLogMapper auditMapper;
     private final Clock clock;
+    private final NotificationService notificationService;
 
     @Transactional
     public MeetupReview create(long reviewerId, long meetupId, long revieweeId, int rating, String comment) {
@@ -123,6 +127,12 @@ public class MeetupReviewService {
                 .reason(reason.trim())
                 .occurredAt(now)
                 .build());
+        NotificationType notificationType = target == MeetupReviewStatus.HIDDEN
+                ? NotificationType.REVIEW_HIDDEN : NotificationType.REVIEW_RESTORED;
+        notificationService.notify(review.getReviewerAccountId(), notificationType,
+                target == MeetupReviewStatus.HIDDEN ? "评价已隐藏" : "评价已恢复",
+                "处理原因：" + reason.trim(), NotificationReferenceType.MEETUP_REVIEW, reviewId,
+                "review:" + reviewId + ":" + target.name().toLowerCase());
         return review;
     }
 

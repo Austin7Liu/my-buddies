@@ -13,6 +13,9 @@ import com.austin.module.risk.domain.RestrictionStatus;
 import com.austin.module.risk.domain.RestrictionType;
 import com.austin.module.risk.mapper.AccountBusinessRestrictionAuditLogMapper;
 import com.austin.module.risk.mapper.AccountBusinessRestrictionMapper;
+import com.austin.module.notification.domain.NotificationReferenceType;
+import com.austin.module.notification.domain.NotificationType;
+import com.austin.module.notification.service.NotificationService;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -32,6 +35,7 @@ public class RiskRestrictionService {
     private final AccountBusinessRestrictionAuditLogMapper auditMapper;
     private final UserAccountMapper accountMapper;
     private final Clock clock;
+    private final NotificationService notificationService;
 
     @Transactional
     public AccountBusinessRestriction create(long operatorId, long accountId, RestrictionType type,
@@ -66,6 +70,10 @@ public class RiskRestrictionService {
             throw new ConflictException("该账户已存在同类型有效限制", exception);
         }
         audit(restriction.getId(), operatorId, RestrictionAuditAction.CREATE, reason.trim(), now);
+        notificationService.notify(accountId, NotificationType.RISK_RESTRICTION_CREATED,
+                "账户业务能力暂时受限", "限制原因：" + reason.trim(),
+                NotificationReferenceType.RISK_RESTRICTION, restriction.getId(),
+                "restriction:" + restriction.getId() + ":created");
         return restriction;
     }
 
@@ -88,6 +96,10 @@ public class RiskRestrictionService {
         restriction.setUpdatedAt(now);
         persist(restriction);
         audit(restrictionId, operatorId, RestrictionAuditAction.REVOKE, reason.trim(), now);
+        notificationService.notify(restriction.getAccountId(), NotificationType.RISK_RESTRICTION_REVOKED,
+                "账户业务限制已撤销", "撤销原因：" + reason.trim(),
+                NotificationReferenceType.RISK_RESTRICTION, restrictionId,
+                "restriction:" + restrictionId + ":revoked");
         return restriction;
     }
 

@@ -41,6 +41,9 @@ import com.austin.module.risk.domain.RestrictionStatus;
 import com.austin.module.risk.domain.RestrictionType;
 import com.austin.module.risk.mapper.AccountBusinessRestrictionAuditLogMapper;
 import com.austin.module.risk.mapper.AccountBusinessRestrictionMapper;
+import com.austin.module.notification.domain.NotificationType;
+import com.austin.module.notification.domain.UserNotification;
+import com.austin.module.notification.mapper.UserNotificationMapper;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -101,6 +104,9 @@ class MeetupControllerTests {
 
     @Autowired
     private AccountBusinessRestrictionAuditLogMapper restrictionAuditMapper;
+
+    @Autowired
+    private UserNotificationMapper notificationMapper;
 
     private UserAccount creator;
     private UserAccount applicant;
@@ -184,6 +190,18 @@ class MeetupControllerTests {
                         .with(user(creator.getId().toString())))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.total").value(1));
+        UserNotification restrictionNotification = notificationMapper.selectOne(
+                new LambdaQueryWrapper<UserNotification>()
+                        .eq(UserNotification::getRecipientAccountId, creator.getId())
+                        .eq(UserNotification::getNotificationType,
+                                NotificationType.RISK_RESTRICTION_CREATED));
+        mockMvc.perform(post("/api/v1/notifications/{notificationId}/read", restrictionNotification.getId())
+                        .with(user(applicant.getId().toString())))
+                .andExpect(status().isNotFound());
+        mockMvc.perform(post("/api/v1/notifications/{notificationId}/read", restrictionNotification.getId())
+                        .with(user(creator.getId().toString())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.read").value(true));
 
         AccountBusinessRestriction createLimit = restrictionMapper.selectOne(
                 new LambdaQueryWrapper<AccountBusinessRestriction>()
@@ -285,6 +303,10 @@ class MeetupControllerTests {
                 .andExpect(jsonPath("$.data.status").value("CONFIRMED"))
                 .andExpect(jsonPath("$.data.acceptedCount").value(2))
                 .andExpect(jsonPath("$.data.remainingSlots").value(0));
+        mockMvc.perform(get("/api/v1/notifications/unread-count")
+                        .with(user(applicant.getId().toString())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.count").value(1));
     }
 
     @Test

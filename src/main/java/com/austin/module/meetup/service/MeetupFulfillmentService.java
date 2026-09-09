@@ -19,6 +19,9 @@ import com.austin.module.meetup.mapper.MeetupCheckInMapper;
 import com.austin.module.meetup.mapper.MeetupFulfillmentMapper;
 import com.austin.module.meetup.mapper.MeetupMapper;
 import com.austin.module.meetup.mapper.MeetupParticipantMapper;
+import com.austin.module.notification.domain.NotificationReferenceType;
+import com.austin.module.notification.domain.NotificationType;
+import com.austin.module.notification.service.NotificationService;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -41,6 +44,7 @@ public class MeetupFulfillmentService {
     private final MeetupFulfillmentMapper fulfillmentMapper;
     private final MeetupAuditLogMapper auditMapper;
     private final Clock clock;
+    private final NotificationService notificationService;
 
     @Transactional
     public void settle(Meetup meetup, LocalDateTime settledAt) {
@@ -126,6 +130,10 @@ public class MeetupFulfillmentService {
                 .reason(normalizedReason)
                 .occurredAt(now)
                 .build());
+        notificationService.notify(accountId, NotificationType.FULFILLMENT_ADJUSTED,
+                "活动履约结果已修正", "修正结果：" + result.name(),
+                NotificationReferenceType.MEETUP, meetupId,
+                "meetup:" + meetupId + ":fulfillment:" + accountId + ":" + fulfillment.getVersion());
         return fulfillment;
     }
 

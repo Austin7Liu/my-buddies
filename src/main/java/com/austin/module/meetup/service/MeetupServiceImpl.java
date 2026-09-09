@@ -29,6 +29,9 @@ import com.austin.module.meetup.mapper.MeetupOnlineDetailMapper;
 import com.austin.module.meetup.mapper.MeetupParticipantMapper;
 import com.austin.module.risk.domain.RestrictionType;
 import com.austin.module.risk.service.RiskRestrictionService;
+import com.austin.module.notification.domain.NotificationReferenceType;
+import com.austin.module.notification.domain.NotificationType;
+import com.austin.module.notification.service.NotificationService;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -57,6 +60,7 @@ public class MeetupServiceImpl implements MeetupService {
     private final MeetupAuditLogMapper auditMapper;
     private final MeetupFulfillmentService fulfillmentService;
     private final RiskRestrictionService riskRestrictionService;
+    private final NotificationService notificationService;
     private final UserAccountService accountService;
     private final IdentityVerificationService identityService;
     private final AgeEligibilityPolicy agePolicy;
@@ -364,6 +368,14 @@ public class MeetupServiceImpl implements MeetupService {
         persist(participant);
         audit(meetupId, creatorId, applicantId,
                 accepted ? MeetupAuditAction.ACCEPT : MeetupAuditAction.REJECT, trim(reason), now);
+        notificationService.notify(applicantId,
+                accepted ? NotificationType.MEETUP_APPLICATION_ACCEPTED
+                        : NotificationType.MEETUP_APPLICATION_REJECTED,
+                accepted ? "活动申请已通过" : "活动申请未通过",
+                accepted ? "你申请参加的活动已通过审核" : "申请处理原因：" + trim(reason),
+                NotificationReferenceType.MEETUP, meetupId,
+                "meetup:" + meetupId + ":application:" + applicantId + ":"
+                        + (accepted ? "accepted" : "rejected"));
         return participant;
     }
 
@@ -620,6 +632,20 @@ public class MeetupServiceImpl implements MeetupService {
         meetup.setUpdatedAt(now);
         persist(meetup);
         audit(meetup.getId(), operatorId, null, action, reason.trim(), now);
+        NotificationType notificationType = status == MeetupStatus.CANCELLED
+                ? NotificationType.MEETUP_CANCELLED : NotificationType.MEETUP_TERMINATED;
+        for (MeetupParticipant participant : participantMapper.selectList(
+                new LambdaQueryWrapper<MeetupParticipant>()
+                        .eq(MeetupParticipant::getMeetupId, meetup.getId())
+                        .eq(MeetupParticipant::getStatus, ParticipantStatus.ACCEPTED))) {
+            if (!participant.getAccountId().equals(operatorId)) {
+                notificationService.notify(participant.getAccountId(), notificationType,
+                        status == MeetupStatus.CANCELLED ? "活动已取消" : "活动已终止",
+                        "处理原因：" + reason.trim(), NotificationReferenceType.MEETUP, meetup.getId(),
+                        "meetup:" + meetup.getId() + ":" + status.name().toLowerCase()
+                                + ":" + participant.getAccountId());
+            }
+        }
         return meetup;
     }
 

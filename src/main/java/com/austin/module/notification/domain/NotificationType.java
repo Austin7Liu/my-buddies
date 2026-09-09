@@ -1,0 +1,26 @@
+package com.austin.module.notification.domain;
+
+public enum NotificationType {
+
+    MEETUP_APPLICATION_ACCEPTED,
+
+    MEETUP_APPLICATION_REJECTED,
+
+    MEETUP_CANCELLED,
+
+    MEETUP_TERMINATED,
+
+    FULFILLMENT_ADJUSTED,
+
+    REVIEW_HIDDEN,
+
+    REVIEW_RESTORED,
+
+    RISK_RESTRICTION_CREATED,
+
+    RISK_RESTRICTION_REVOKED,
+
+    POST_COMMENTED,
+
+    COMMENT_REPLIED
+}
