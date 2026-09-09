@@ -34,6 +34,13 @@ import com.austin.module.meetup.mapper.MeetupMapper;
 import com.austin.module.meetup.mapper.MeetupParticipantMapper;
 import com.austin.module.meetup.mapper.MeetupReviewAuditLogMapper;
 import com.austin.module.meetup.mapper.MeetupReviewMapper;
+import com.austin.module.risk.domain.AccountBusinessRestriction;
+import com.austin.module.risk.domain.AccountBusinessRestrictionAuditLog;
+import com.austin.module.risk.domain.RestrictionAuditAction;
+import com.austin.module.risk.domain.RestrictionStatus;
+import com.austin.module.risk.domain.RestrictionType;
+import com.austin.module.risk.mapper.AccountBusinessRestrictionAuditLogMapper;
+import com.austin.module.risk.mapper.AccountBusinessRestrictionMapper;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -89,6 +96,12 @@ class MeetupControllerTests {
     @Autowired
     private MeetupReviewAuditLogMapper reviewAuditMapper;
 
+    @Autowired
+    private AccountBusinessRestrictionMapper restrictionMapper;
+
+    @Autowired
+    private AccountBusinessRestrictionAuditLogMapper restrictionAuditMapper;
+
     private UserAccount creator;
     private UserAccount applicant;
     private UserAccount moderator;
@@ -139,6 +152,93 @@ class MeetupControllerTests {
                 .andExpect(jsonPath("$.data.attendanceRate").doesNotExist())
                 .andExpect(jsonPath("$.data.receivedReviewCount").value(0))
                 .andExpect(jsonPath("$.data.averageRating").doesNotExist());
+    }
+
+    @Test
+    void riskRestrictionBlocksMeetupActionsAndCanBeRevokedOrExpired() throws Exception {
+        String createRestriction = "{\"accountId\":" + creator.getId()
+                + ",\"restrictionType\":\"MEETUP_CREATE_DISABLED\","
+                + "\"reason\":\"连续无故缺席\",\"expiresAt\":\""
+                + LocalDateTime.now().plusDays(2).format(FORMATTER) + "\"}";
+        mockMvc.perform(post("/api/v1/admin/risk/restrictions")
+                        .with(user(moderator.getId().toString()).roles("CONTENT_ADMIN"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(createRestriction))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(post("/api/v1/admin/risk/restrictions")
+                        .with(user(moderator.getId().toString()).roles("RISK_REVIEWER"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(createRestriction))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("ACTIVE"))
+                .andExpect(jsonPath("$.data.effective").value(true));
+        mockMvc.perform(post("/api/v1/admin/risk/restrictions")
+                        .with(user(moderator.getId().toString()).roles("RISK_REVIEWER"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(createRestriction))
+                .andExpect(status().isConflict());
+        createMeetup(topic.getId(), null, 3)
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error.code").value("BUSINESS_RESTRICTED"));
+        mockMvc.perform(get("/api/v1/risk/restrictions/me")
+                        .with(user(creator.getId().toString())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total").value(1));
+
+        AccountBusinessRestriction createLimit = restrictionMapper.selectOne(
+                new LambdaQueryWrapper<AccountBusinessRestriction>()
+                        .eq(AccountBusinessRestriction::getAccountId, creator.getId())
+                        .eq(AccountBusinessRestriction::getRestrictionType,
+                                RestrictionType.MEETUP_CREATE_DISABLED));
+        mockMvc.perform(post("/api/v1/admin/risk/restrictions/{restrictionId}/revoke", createLimit.getId())
+                        .with(user(moderator.getId().toString()).roles("SUPER_ADMIN"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reason\":\"复核后撤销\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("REVOKED"))
+                .andExpect(jsonPath("$.data.effective").value(false));
+
+        createMeetup(topic.getId(), null, 3).andExpect(status().isOk());
+        Meetup meetup = findMeetup();
+        publish(meetup.getId());
+        String joinRestriction = "{\"accountId\":" + applicant.getId()
+                + ",\"restrictionType\":\"MEETUP_JOIN_DISABLED\","
+                + "\"reason\":\"报名风险复核\",\"expiresAt\":\""
+                + LocalDateTime.now().plusDays(2).format(FORMATTER) + "\"}";
+        mockMvc.perform(post("/api/v1/admin/risk/restrictions")
+                        .with(user(moderator.getId().toString()).roles("RISK_REVIEWER"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(joinRestriction))
+                .andExpect(status().isOk());
+        mockMvc.perform(post("/api/v1/meetups/{meetupId}/applications", meetup.getId())
+                        .with(user(applicant.getId().toString()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"message\":\"申请加入\"}"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error.code").value("BUSINESS_RESTRICTED"));
+
+        AccountBusinessRestriction joinLimit = restrictionMapper.selectOne(
+                new LambdaQueryWrapper<AccountBusinessRestriction>()
+                        .eq(AccountBusinessRestriction::getAccountId, applicant.getId())
+                        .eq(AccountBusinessRestriction::getRestrictionType,
+                                RestrictionType.MEETUP_JOIN_DISABLED));
+        joinLimit.setStartsAt(LocalDateTime.now().minusDays(3));
+        joinLimit.setExpiresAt(LocalDateTime.now().minusDays(1));
+        assertThat(restrictionMapper.updateById(joinLimit)).isEqualTo(1);
+        mockMvc.perform(post("/api/v1/meetups/{meetupId}/applications", meetup.getId())
+                        .with(user(applicant.getId().toString()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"message\":\"限制已到期\"}"))
+                .andExpect(status().isOk());
+        AccountBusinessRestriction expired = restrictionMapper.selectById(joinLimit.getId());
+        assertThat(expired.getStatus()).isEqualTo(RestrictionStatus.EXPIRED);
+        assertThat(restrictionAuditMapper.selectCount(
+                new LambdaQueryWrapper<AccountBusinessRestrictionAuditLog>()
+                        .in(AccountBusinessRestrictionAuditLog::getAction,
+                                RestrictionAuditAction.CREATE,
+                                RestrictionAuditAction.REVOKE,
+                                RestrictionAuditAction.EXPIRE)))
+                .isEqualTo(4);
     }
 
     @Test

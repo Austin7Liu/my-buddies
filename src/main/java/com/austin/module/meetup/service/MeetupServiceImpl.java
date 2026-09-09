@@ -27,6 +27,8 @@ import com.austin.module.meetup.mapper.MeetupAuditLogMapper;
 import com.austin.module.meetup.mapper.MeetupMapper;
 import com.austin.module.meetup.mapper.MeetupOnlineDetailMapper;
 import com.austin.module.meetup.mapper.MeetupParticipantMapper;
+import com.austin.module.risk.domain.RestrictionType;
+import com.austin.module.risk.service.RiskRestrictionService;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -54,6 +56,7 @@ public class MeetupServiceImpl implements MeetupService {
     private final MeetupParticipantMapper participantMapper;
     private final MeetupAuditLogMapper auditMapper;
     private final MeetupFulfillmentService fulfillmentService;
+    private final RiskRestrictionService riskRestrictionService;
     private final UserAccountService accountService;
     private final IdentityVerificationService identityService;
     private final AgeEligibilityPolicy agePolicy;
@@ -120,6 +123,7 @@ public class MeetupServiceImpl implements MeetupService {
     @Override
     @Transactional
     public Meetup create(long creatorId, Long topicId, Long circleId, MeetupCommand command) {
+        riskRestrictionService.ensureAllowed(creatorId, RestrictionType.MEETUP_CREATE_DISABLED);
         IdentityVerification creatorIdentity = ensureEligible(creatorId, "创建活动");
         Association association = resolveAssociation(topicId, circleId);
         validateCommand(command, creatorIdentity);
@@ -281,6 +285,7 @@ public class MeetupServiceImpl implements MeetupService {
     @Override
     @Transactional
     public MeetupParticipant apply(long accountId, long meetupId, String message) {
+        riskRestrictionService.ensureAllowed(accountId, RestrictionType.MEETUP_JOIN_DISABLED);
         Meetup meetup = requireMeetup(meetupId);
         IdentityVerification identity = ensureEligible(accountId, "报名活动");
         ensureOpenForApplication(meetup);

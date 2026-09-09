@@ -38,6 +38,12 @@ public class GlobalExceptionHandler {
                 .body(ApiResponse.failure("FORBIDDEN", exception.getMessage()));
     }
 
+    @ExceptionHandler(BusinessRestrictedException.class)
+    public ResponseEntity<ApiResponse<Void>> handleBusinessRestricted(BusinessRestrictedException exception) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(ApiResponse.failure("BUSINESS_RESTRICTED", exception.getMessage()));
+    }
+
     @ExceptionHandler(TooManyRequestsException.class)
     public ResponseEntity<ApiResponse<Void>> handleTooManyRequests(TooManyRequestsException exception) {
         return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
