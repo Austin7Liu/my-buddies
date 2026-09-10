@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.austin.module.post.mapper.PostLikeMapper">
+
+    <select id="selectCounts"
+            resultType="com.austin.module.post.mapper.model.PostLikeCountRow">
+        SELECT post_id,
+               COUNT(*) AS like_count
+        FROM post_like
+        WHERE post_id IN
+        <foreach collection="postIds"
+                 item="postId"
+                 open="("
+                 separator=","
+                 close=")">
+            #{postId}
+        </foreach>
+        GROUP BY post_id
+    </select>
+
+    <select id="selectLikedPostIds"
+            resultType="java.lang.Long">
+        SELECT post_id
+        FROM post_like
+        WHERE account_id = #{accountId}
+          AND post_id IN
+        <foreach collection="postIds"
+                 item="postId"
+                 open="("
+                 separator=","
+                 close=")">
+            #{postId}
+        </foreach>
+    </select>
+
+</mapper>

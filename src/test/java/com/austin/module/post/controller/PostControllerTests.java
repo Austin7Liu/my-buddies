@@ -119,6 +119,19 @@ class PostControllerTests {
     }
 
     @Test
+    void nonMemberCannotCreateCirclePost() throws Exception {
+        UserAccount outsider = accountService.create("13900139503");
+        identityService.submit(outsider.getId(), "圈外用户", "110105198806150016");
+
+        mockMvc.perform(post("/api/v1/posts")
+                        .with(user(outsider.getId().toString()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"content\":\"圈外发帖\",\"circleId\":" + circle.getId() + "}"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error.message").value("加入圈子后才能在圈子内发帖"));
+    }
+
+    @Test
     void mismatchedTopicAndCircleAreRejected() throws Exception {
         Topic another = catalogService.createTopic(moderator.getId(), 101, "post-other-topic", "其他话题", null, 2);
         createPost("{\"content\":\"错误关联\",\"topicId\":" + another.getId()

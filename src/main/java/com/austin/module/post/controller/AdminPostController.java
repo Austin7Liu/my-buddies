@@ -7,6 +7,8 @@ import com.austin.module.post.controller.response.PostResponse;
 import com.austin.module.post.domain.Post;
 import com.austin.module.post.domain.PostStatus;
 import com.austin.module.post.service.PostService;
+import com.austin.module.post.service.PostInteractionService;
+import com.austin.module.post.service.PostInteractionService.InteractionSummary;
 import com.austin.module.profile.controller.response.ProfileSummaryResponse;
 import com.austin.module.profile.service.ProfileService;
 import com.baomidou.mybatisplus.core.metadata.IPage;
@@ -36,6 +38,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class AdminPostController {
 
     private final PostService postService;
+    private final PostInteractionService interactionService;
     private final ProfileService profileService;
 
     @GetMapping
@@ -81,14 +84,17 @@ public class AdminPostController {
     private PageResponse<PostResponse> responsePage(IPage<Post> page) {
         Map<Long, ProfileService.ProfileSummary> summaries = profileService.getSummaries(
                 page.getRecords().stream().map(Post::getAuthorAccountId).toList());
+        Map<Long, InteractionSummary> interactions = interactionService.summarize(
+                page.getRecords().stream().map(Post::getId).toList(), null);
         return PageResponse.from(page, post -> PostResponse.from(post,
-                ProfileSummaryResponse.from(summaries.get(post.getAuthorAccountId()))));
+                ProfileSummaryResponse.from(summaries.get(post.getAuthorAccountId())), interactions.get(post.getId())));
     }
 
     private PostResponse response(Post post) {
         var summary = profileService.getSummaries(List.of(post.getAuthorAccountId()))
                 .get(post.getAuthorAccountId());
-        return PostResponse.from(post, ProfileSummaryResponse.from(summary));
+        InteractionSummary interaction = interactionService.summarize(List.of(post.getId()), null).get(post.getId());
+        return PostResponse.from(post, ProfileSummaryResponse.from(summary), interaction);
     }
 
     private long accountId(Authentication authentication) {

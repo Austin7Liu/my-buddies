@@ -12,5 +12,9 @@ public enum NotificationReferenceType {
 
     CONTENT_REPORT,
 
-    CONTENT_APPEAL
+    CONTENT_APPEAL,
+
+    CONTENT_VIOLATION,
+
+    POST_LIKE
 }

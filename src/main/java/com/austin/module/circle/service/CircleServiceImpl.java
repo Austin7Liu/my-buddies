@@ -36,6 +36,7 @@ public class CircleServiceImpl implements CircleService {
     private final IdentityVerificationService identityService;
     private final AgeEligibilityPolicy agePolicy;
     private final CatalogService catalogService;
+    private final CircleMembershipService membershipService;
     private final Clock clock;
 
     @Override @Transactional(readOnly = true)
@@ -78,6 +79,7 @@ public class CircleServiceImpl implements CircleService {
                 .status(CircleStatus.PENDING_REVIEW).version(0).createdAt(now).updatedAt(now).build();
         try { circleMapper.insert(value); }
         catch (DuplicateKeyException ex) { throw new ConflictException("该话题下已存在同名圈子", ex); }
+        membershipService.createOwnerMembership(creatorId, value.getId(), now);
         audit(value.getId(), creatorId, CircleAuditAction.SUBMIT, null, CircleStatus.PENDING_REVIEW, null, now);
         return value;
     }
@@ -142,4 +144,3 @@ public class CircleServiceImpl implements CircleService {
                 .fromStatus(from).toStatus(to).reason(reason).occurredAt(now).build());
     }
 }
-

@@ -173,6 +173,7 @@ public class ContentReportService {
         report.setStatus(target);
         report.setHandledBy(operatorId);
         report.setHandledAt(now);
+        report.setAppealDeadlineAt(target == ReportStatus.RESOLVED ? now.plusDays(7) : null);
         report.setResolutionNote(note);
         report.setActiveMarker(null);
         report.setUpdatedAt(now);

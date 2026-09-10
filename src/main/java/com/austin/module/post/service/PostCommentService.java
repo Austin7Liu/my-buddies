@@ -18,6 +18,8 @@ import com.austin.module.post.domain.PostCommentAuditLog;
 import com.austin.module.post.domain.PostCommentStatus;
 import com.austin.module.post.mapper.PostCommentAuditLogMapper;
 import com.austin.module.post.mapper.PostCommentMapper;
+import com.austin.module.risk.domain.RestrictionType;
+import com.austin.module.risk.service.RiskRestrictionService;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -38,6 +40,7 @@ public class PostCommentService {
     private final IdentityVerificationService identityService;
     private final AgeEligibilityPolicy ageEligibilityPolicy;
     private final NotificationService notificationService;
+    private final RiskRestrictionService restrictionService;
     private final Clock clock;
 
     @Transactional(readOnly = true)
@@ -53,6 +56,7 @@ public class PostCommentService {
     @Transactional
     public PostComment create(long accountId, long postId, Long parentCommentId, String content) {
         requireEligible(accountId);
+        restrictionService.ensureAllowed(accountId, RestrictionType.COMMENT_CREATE_DISABLED);
         Post post = postService.getPublic(postId);
         PostComment parent = parentCommentId == null ? null : requireComment(parentCommentId);
         if (parent != null && (!parent.getPostId().equals(postId)

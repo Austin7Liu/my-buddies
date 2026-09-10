@@ -8,6 +8,7 @@ import com.austin.module.account.service.UserAccountService;
 import com.austin.module.catalog.domain.Topic;
 import com.austin.module.catalog.service.CatalogService;
 import com.austin.module.circle.domain.Circle;
+import com.austin.module.circle.service.CircleMembershipService;
 import com.austin.module.circle.service.CircleService;
 import com.austin.module.identity.domain.IdentityStatus;
 import com.austin.module.identity.domain.IdentityVerification;
@@ -19,6 +20,8 @@ import com.austin.module.post.domain.PostAuditLog;
 import com.austin.module.post.domain.PostStatus;
 import com.austin.module.post.mapper.PostAuditLogMapper;
 import com.austin.module.post.mapper.PostMapper;
+import com.austin.module.risk.domain.RestrictionType;
+import com.austin.module.risk.service.RiskRestrictionService;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -40,6 +43,8 @@ public class PostServiceImpl implements PostService {
     private final AgeEligibilityPolicy agePolicy;
     private final CatalogService catalogService;
     private final CircleService circleService;
+    private final CircleMembershipService membershipService;
+    private final RiskRestrictionService restrictionService;
     private final Clock clock;
 
     @Override
@@ -60,6 +65,19 @@ public class PostServiceImpl implements PostService {
     public IPage<Post> listByCircle(long circleId, long page, long size) {
         circleService.getPublic(circleId);
         return selectPublic(new LambdaQueryWrapper<Post>().eq(Post::getCircleId, circleId), page, size);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public IPage<Post> listPersonalFeed(long accountId, long page, long size) {
+        LambdaQueryWrapper<Post> query = new LambdaQueryWrapper<Post>()
+                .and(value -> value
+                        .apply("EXISTS (SELECT 1 FROM topic_follow tf WHERE tf.topic_id = post.topic_id "
+                                + "AND tf.account_id = {0})", accountId)
+                        .or()
+                        .apply("EXISTS (SELECT 1 FROM circle_member cm WHERE cm.circle_id = post.circle_id "
+                                + "AND cm.account_id = {0} AND cm.status = 'ACTIVE')", accountId));
+        return selectPublic(query, page, size);
     }
 
     @Override
@@ -101,7 +119,11 @@ public class PostServiceImpl implements PostService {
     @Transactional
     public Post create(long authorId, String content, Long topicId, Long circleId) {
         ensureAuthorEligible(authorId);
+        restrictionService.ensureAllowed(authorId, RestrictionType.POST_CREATE_DISABLED);
         Association association = resolveAssociation(topicId, circleId);
+        if (association.circleId() != null) {
+            membershipService.ensureActiveMember(authorId, association.circleId());
+        }
         LocalDateTime now = LocalDateTime.now(clock);
         Post post = Post.builder()
                 .authorAccountId(authorId)

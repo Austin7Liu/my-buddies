@@ -24,6 +24,7 @@ import com.austin.module.post.domain.PostCommentAuditLog;
 import com.austin.module.post.domain.PostCommentStatus;
 import com.austin.module.post.mapper.PostCommentAuditLogMapper;
 import com.austin.module.post.mapper.PostCommentMapper;
+import com.austin.module.risk.service.RiskRestrictionService;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -63,12 +64,15 @@ class PostCommentServiceTests {
     @Mock
     private NotificationService notificationService;
 
+    @Mock
+    private RiskRestrictionService restrictionService;
+
     private PostCommentService service;
 
     @BeforeEach
     void setUp() {
         service = new PostCommentService(commentMapper, auditLogMapper, postService, accountService,
-                identityService, ageEligibilityPolicy, notificationService,
+                identityService, ageEligibilityPolicy, notificationService, restrictionService,
                 Clock.fixed(Instant.parse("2026-09-09T08:00:00Z"), ZoneOffset.UTC));
     }
 

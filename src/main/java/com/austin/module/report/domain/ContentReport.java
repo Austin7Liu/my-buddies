@@ -46,6 +46,9 @@ public class ContentReport {
     private LocalDateTime handledAt;
 
     @TableField(updateStrategy = FieldStrategy.ALWAYS)
+    private LocalDateTime appealDeadlineAt;
+
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private String resolutionNote;
 
     @TableField(updateStrategy = FieldStrategy.ALWAYS)

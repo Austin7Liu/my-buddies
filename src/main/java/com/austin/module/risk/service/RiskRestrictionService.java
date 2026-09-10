@@ -103,6 +103,11 @@ public class RiskRestrictionService {
         return restriction;
     }
 
+    @Transactional(readOnly = true)
+    public AccountBusinessRestriction getById(long restrictionId) {
+        return requireRestriction(restrictionId);
+    }
+
     @Transactional
     public void ensureAllowed(long accountId, RestrictionType type) {
         LocalDateTime now = LocalDateTime.now(clock);
@@ -114,9 +119,17 @@ public class RiskRestrictionService {
                 .le(AccountBusinessRestriction::getStartsAt, now)
                 .gt(AccountBusinessRestriction::getExpiresAt, now));
         if (activeCount > 0) {
-            throw new BusinessRestrictedException(type == RestrictionType.MEETUP_CREATE_DISABLED
-                    ? "当前账户暂时不能创建活动" : "当前账户暂时不能申请加入活动");
+            throw new BusinessRestrictedException(restrictionMessage(type));
         }
+    }
+
+    private String restrictionMessage(RestrictionType type) {
+        return switch (type) {
+            case MEETUP_CREATE_DISABLED -> "当前账户暂时不能创建活动";
+            case MEETUP_JOIN_DISABLED -> "当前账户暂时不能申请加入活动";
+            case POST_CREATE_DISABLED -> "当前账户暂时不能发布帖子";
+            case COMMENT_CREATE_DISABLED -> "当前账户暂时不能发表评论";
+        };
     }
 
     @Transactional

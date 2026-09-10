@@ -12,6 +12,8 @@ public interface PostService {
 
     IPage<Post> listByCircle(long circleId, long page, long size);
 
+    IPage<Post> listPersonalFeed(long accountId, long page, long size);
+
     Post getPublic(long postId);
 
     IPage<Post> listMine(long authorId, PostStatus status, long page, long size);
