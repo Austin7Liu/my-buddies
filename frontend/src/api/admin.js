@@ -1,0 +1,15 @@
+import http from './http.js'
+
+export const getMyRoles = () => http.get('/admin/me/roles')
+export const listAdminCircles = (status, page = 1, size = 20) => http.get('/admin/circles', { params: { status: status || undefined, page, size } })
+export const approveCircle = (circleId) => http.post(`/admin/circles/${circleId}/approve`)
+export const rejectCircle = (circleId, reason) => http.post(`/admin/circles/${circleId}/reject`, { reason })
+export const setCircleEnabled = (circleId, enabled) => http.patch(`/admin/circles/${circleId}/enabled`, null, { params: { enabled } })
+export const listAdminPosts = (status, page = 1, size = 20) => http.get('/admin/posts', { params: { status: status || undefined, page, size } })
+export const approvePost = (postId) => http.post(`/admin/posts/${postId}/approve`)
+export const rejectPost = (postId, reason) => http.post(`/admin/posts/${postId}/reject`, { reason })
+export const offlinePost = (postId, reason) => http.post(`/admin/posts/${postId}/offline`, { reason })
+export const restorePost = (postId) => http.post(`/admin/posts/${postId}/restore`)
+export const listAdminMeetups = (status, page = 1, size = 20) => http.get('/admin/meetups', { params: { status: status || undefined, page, size } })
+export const terminateMeetup = (meetupId, reason) => http.post(`/admin/meetups/${meetupId}/terminate`, { reason })
+export const rebuildSearchIndex = () => http.post('/admin/search/reindex', null, { timeout: 120000 })

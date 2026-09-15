@@ -13,7 +13,7 @@ const router = useRouter()
 const topic = ref(null)
 const circles = ref({ records: [], page: 1, size: 20, total: 0 })
 const loading = ref(true)
-const topicId = Number(route.params.topicId)
+const topicId = String(route.params.topicId)
 
 async function load(page = 1) {
   loading.value = true

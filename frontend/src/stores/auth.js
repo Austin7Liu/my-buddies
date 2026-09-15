@@ -16,6 +16,8 @@ const state = reactive({
   account: saved.account ?? null,
   accessToken: saved.accessToken ?? '',
   refreshToken: saved.refreshToken ?? '',
+  roles: saved.roles ?? [],
+  rolesLoaded: false,
 })
 
 function persist() {
@@ -27,6 +29,7 @@ function persist() {
     account: state.account,
     accessToken: state.accessToken,
     refreshToken: state.refreshToken,
+    roles: state.roles,
   }))
 }
 
@@ -41,6 +44,14 @@ export function clearSession() {
   state.account = null
   state.accessToken = ''
   state.refreshToken = ''
+  state.roles = []
+  state.rolesLoaded = false
+  persist()
+}
+
+export function setRoles(roles) {
+  state.roles = [...roles]
+  state.rolesLoaded = true
   persist()
 }
 
@@ -48,3 +59,6 @@ export const authState = readonly(state)
 export const getAccessToken = () => state.accessToken
 export const getRefreshToken = () => state.refreshToken
 export const isAuthenticated = () => Boolean(state.accessToken && state.refreshToken)
+export const rolesAreLoaded = () => state.rolesLoaded
+export const hasRole = (role) => state.roles.includes(role)
+export const isContentAdmin = () => hasRole('CONTENT_ADMIN') || hasRole('SUPER_ADMIN')

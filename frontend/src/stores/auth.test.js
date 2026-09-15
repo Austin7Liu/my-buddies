@@ -28,4 +28,12 @@ describe('auth store', () => {
     expect(auth.isAuthenticated()).toBe(false)
     expect(localStorage.getItem('my-buddies-session')).toBeNull()
   })
+
+  it('recognizes effective content administration roles', async () => {
+    const auth = await import('./auth.js')
+    auth.setRoles(['SUPER_ADMIN'])
+
+    expect(auth.rolesAreLoaded()).toBe(true)
+    expect(auth.isContentAdmin()).toBe(true)
+  })
 })

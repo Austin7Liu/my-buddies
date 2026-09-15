@@ -9,7 +9,7 @@ import PaginationBar from '../../components/PaginationBar.vue'
 
 const route = useRoute()
 const router = useRouter()
-const circleId = Number(route.params.circleId)
+const circleId = String(route.params.circleId)
 const circle = ref(null)
 const membership = ref(null)
 const members = ref({ records: [], page: 1, size: 20, total: 0 })

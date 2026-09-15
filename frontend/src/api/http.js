@@ -1,4 +1,5 @@
 import axios from 'axios'
+import JSONbig from 'json-bigint'
 import { ElMessage } from 'element-plus'
 import { clearSession, getAccessToken, getRefreshToken, setSession } from '../stores/auth.js'
 
@@ -6,6 +7,10 @@ const http = axios.create({
   baseURL: '/api/v1',
   timeout: 10000,
   headers: { 'Content-Type': 'application/json' },
+  transformResponse: [(data) => {
+    if (typeof data !== 'string' || !data) return data
+    try { return JSONbig({ storeAsString: true }).parse(data) } catch { return data }
+  }],
 })
 
 let refreshPromise = null

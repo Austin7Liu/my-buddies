@@ -1,8 +1,23 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { isAuthenticated } from '../stores/auth.js'
+import { isContentAdmin, rolesAreLoaded, setRoles } from '../stores/auth.js'
+import { getMyRoles } from '../api/admin.js'
 
 const routes = [
   { path: '/login', name: 'login', component: () => import('../views/auth/LoginView.vue'), meta: { guestOnly: true } },
+  { path: '/forbidden', name: 'forbidden', component: () => import('../views/error/ForbiddenView.vue') },
+  {
+    path: '/admin',
+    component: () => import('../layouts/AdminLayout.vue'),
+    meta: { requiresAuth: true, requiresContentAdmin: true },
+    children: [
+      { path: '', name: 'admin-dashboard', component: () => import('../views/admin/AdminDashboardView.vue') },
+      { path: 'circles', name: 'admin-circles', component: () => import('../views/admin/CircleModerationView.vue') },
+      { path: 'posts', name: 'admin-posts', component: () => import('../views/admin/PostModerationView.vue') },
+      { path: 'meetups', name: 'admin-meetups', component: () => import('../views/admin/MeetupManagementView.vue') },
+      { path: 'search', name: 'admin-search', component: () => import('../views/admin/SearchManagementView.vue') },
+    ],
+  },
   {
     path: '/',
     component: () => import('../layouts/AppLayout.vue'),
@@ -20,9 +35,15 @@ const routes = [
 
 const router = createRouter({ history: createWebHistory(), routes, scrollBehavior: () => ({ top: 0 }) })
 
-router.beforeEach((to) => {
+router.beforeEach(async (to) => {
   if (to.matched.some((record) => record.meta.requiresAuth) && !isAuthenticated()) {
     return { name: 'login', query: { redirect: to.fullPath } }
+  }
+  if (to.matched.some((record) => record.meta.requiresContentAdmin)) {
+    if (!rolesAreLoaded()) {
+      try { setRoles((await getMyRoles()).data.roles) } catch { return { name: 'forbidden' } }
+    }
+    if (!isContentAdmin()) return { name: 'forbidden' }
   }
   if (to.meta.guestOnly && isAuthenticated()) return { name: 'home' }
   return true
