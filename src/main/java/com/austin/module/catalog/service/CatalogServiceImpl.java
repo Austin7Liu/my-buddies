@@ -10,6 +10,8 @@ import com.austin.module.catalog.domain.Topic;
 import com.austin.module.catalog.mapper.CatalogAdminAuditLogMapper;
 import com.austin.module.catalog.mapper.CategoryMapper;
 import com.austin.module.catalog.mapper.TopicMapper;
+import com.austin.module.search.domain.SearchDocumentType;
+import com.austin.module.search.service.SearchOutboxService;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import java.time.Clock;
 import java.time.LocalDateTime;
@@ -25,6 +27,7 @@ public class CatalogServiceImpl implements CatalogService {
     private final CategoryMapper categoryMapper;
     private final TopicMapper topicMapper;
     private final CatalogAdminAuditLogMapper auditMapper;
+    private final SearchOutboxService searchOutboxService;
     private final Clock clock;
 
     @Override @Transactional(readOnly = true)
@@ -80,6 +83,8 @@ public class CatalogServiceImpl implements CatalogService {
         if (value.getEnabled() == enabled) return value;
         LocalDateTime now = LocalDateTime.now(clock); value.setEnabled(enabled); value.setUpdatedAt(now); updateCategory(value);
         audit(operatorId, CatalogEntityType.CATEGORY, id, enabled ? CatalogAuditAction.ENABLE : CatalogAuditAction.DISABLE, now);
+        topicMapper.selectList(new LambdaQueryWrapper<Topic>().eq(Topic::getCategoryId, id))
+                .forEach(topic -> searchOutboxService.recordCascade(SearchDocumentType.TOPIC, topic.getId()));
         return value;
     }
 
@@ -90,14 +95,16 @@ public class CatalogServiceImpl implements CatalogService {
                 .description(trim(description)).sortOrder(sortOrder).enabled(true).version(0).createdAt(now).updatedAt(now).build();
         try { topicMapper.insert(value); }
         catch (DuplicateKeyException ex) { throw new ConflictException("话题编码或分类内名称已存在", ex); }
-        audit(operatorId, CatalogEntityType.TOPIC, value.getId(), CatalogAuditAction.CREATE, now); return value;
+        audit(operatorId, CatalogEntityType.TOPIC, value.getId(), CatalogAuditAction.CREATE, now);
+        searchOutboxService.recordRefresh(SearchDocumentType.TOPIC, value.getId()); return value;
     }
 
     @Override @Transactional
     public Topic updateTopic(long operatorId, long id, String name, String description, int sortOrder) {
         Topic value = requireTopic(id); LocalDateTime now = LocalDateTime.now(clock);
         value.setName(name.trim()); value.setDescription(trim(description)); value.setSortOrder(sortOrder); value.setUpdatedAt(now);
-        updateTopic(value); audit(operatorId, CatalogEntityType.TOPIC, id, CatalogAuditAction.UPDATE, now); return value;
+        updateTopic(value); audit(operatorId, CatalogEntityType.TOPIC, id, CatalogAuditAction.UPDATE, now);
+        searchOutboxService.recordCascade(SearchDocumentType.TOPIC, id); return value;
     }
 
     @Override @Transactional
@@ -106,7 +113,8 @@ public class CatalogServiceImpl implements CatalogService {
         if (value.getEnabled() == enabled) return value;
         if (enabled && !requireCategory(value.getCategoryId()).getEnabled()) throw new ConflictException("分类停用时不能启用话题");
         LocalDateTime now = LocalDateTime.now(clock); value.setEnabled(enabled); value.setUpdatedAt(now); updateTopic(value);
-        audit(operatorId, CatalogEntityType.TOPIC, id, enabled ? CatalogAuditAction.ENABLE : CatalogAuditAction.DISABLE, now); return value;
+        audit(operatorId, CatalogEntityType.TOPIC, id, enabled ? CatalogAuditAction.ENABLE : CatalogAuditAction.DISABLE, now);
+        searchOutboxService.recordCascade(SearchDocumentType.TOPIC, id); return value;
     }
 
     private Category requireCategory(long id) { Category v = categoryMapper.selectById(id); if (v == null) throw new ResourceNotFoundException("分类不存在"); return v; }
@@ -119,4 +127,3 @@ public class CatalogServiceImpl implements CatalogService {
                 .entityId(entityId).action(action).occurredAt(now).build());
     }
 }
-

@@ -22,6 +22,10 @@ import com.austin.module.post.mapper.PostAuditLogMapper;
 import com.austin.module.post.mapper.PostMapper;
 import com.austin.module.profile.domain.AvatarCode;
 import com.austin.module.profile.service.ProfileService;
+import com.austin.module.search.domain.SearchDocumentType;
+import com.austin.module.search.domain.SearchOutboxEvent;
+import com.austin.module.search.domain.SearchOutboxStatus;
+import com.austin.module.search.mapper.SearchOutboxEventMapper;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -64,6 +68,9 @@ class PostControllerTests {
     @Autowired
     private ProfileService profileService;
 
+    @Autowired
+    private SearchOutboxEventMapper searchOutboxEventMapper;
+
     private UserAccount author;
     private UserAccount moderator;
     private Topic topic;
@@ -92,11 +99,19 @@ class PostControllerTests {
                 .andExpect(jsonPath("$.data.author.verified").value(true))
                 .andExpect(jsonPath("$.data.status").value("PENDING_REVIEW"));
         Post value = findAuthorPost();
+        SearchOutboxEvent createdEvent = searchOutboxEventMapper.selectOne(
+                new LambdaQueryWrapper<SearchOutboxEvent>()
+                        .eq(SearchOutboxEvent::getAggregateType, SearchDocumentType.POST)
+                        .eq(SearchOutboxEvent::getAggregateId, value.getId()));
+        assertThat(createdEvent.getStatus()).isEqualTo(SearchOutboxStatus.PENDING);
 
         mockMvc.perform(get("/api/v1/posts"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.total").value(0));
         approve(value.getId());
+        assertThat(searchOutboxEventMapper.selectCount(new LambdaQueryWrapper<SearchOutboxEvent>()
+                .eq(SearchOutboxEvent::getAggregateType, SearchDocumentType.POST)
+                .eq(SearchOutboxEvent::getAggregateId, value.getId()))).isEqualTo(2);
         mockMvc.perform(get("/api/v1/posts"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.total").value(1));

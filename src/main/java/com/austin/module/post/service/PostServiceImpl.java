@@ -22,6 +22,8 @@ import com.austin.module.post.mapper.PostAuditLogMapper;
 import com.austin.module.post.mapper.PostMapper;
 import com.austin.module.risk.domain.RestrictionType;
 import com.austin.module.risk.service.RiskRestrictionService;
+import com.austin.module.search.domain.SearchDocumentType;
+import com.austin.module.search.service.SearchOutboxService;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -45,6 +47,7 @@ public class PostServiceImpl implements PostService {
     private final CircleService circleService;
     private final CircleMembershipService membershipService;
     private final RiskRestrictionService restrictionService;
+    private final SearchOutboxService searchOutboxService;
     private final Clock clock;
 
     @Override
@@ -137,6 +140,7 @@ public class PostServiceImpl implements PostService {
                 .build();
         postMapper.insert(post);
         audit(post.getId(), authorId, PostAuditAction.SUBMIT, null, PostStatus.PENDING_REVIEW, null, now);
+        searchOutboxService.recordRefresh(SearchDocumentType.POST, post.getId());
         return post;
     }
 
@@ -160,6 +164,7 @@ public class PostServiceImpl implements PostService {
         persist(post);
         audit(postId, authorId, from == PostStatus.REJECTED ? PostAuditAction.RESUBMIT : PostAuditAction.UPDATE,
                 from, PostStatus.PENDING_REVIEW, null, now);
+        searchOutboxService.recordRefresh(SearchDocumentType.POST, postId);
         return post;
     }
 
@@ -177,6 +182,7 @@ public class PostServiceImpl implements PostService {
         post.setUpdatedAt(now);
         persist(post);
         audit(postId, authorId, PostAuditAction.DELETE, from, PostStatus.DELETED, null, now);
+        searchOutboxService.recordRefresh(SearchDocumentType.POST, postId);
         return post;
     }
 
@@ -208,6 +214,7 @@ public class PostServiceImpl implements PostService {
         persist(post);
         audit(postId, moderatorId, PostAuditAction.OFFLINE, PostStatus.PUBLISHED, PostStatus.OFFLINE,
                 reason.trim(), now);
+        searchOutboxService.recordRefresh(SearchDocumentType.POST, postId);
         return post;
     }
 
@@ -227,6 +234,7 @@ public class PostServiceImpl implements PostService {
         post.setUpdatedAt(now);
         persist(post);
         audit(postId, moderatorId, PostAuditAction.RESTORE, PostStatus.OFFLINE, PostStatus.PUBLISHED, null, now);
+        searchOutboxService.recordRefresh(SearchDocumentType.POST, postId);
         return post;
     }
 
@@ -248,6 +256,7 @@ public class PostServiceImpl implements PostService {
         persist(post);
         audit(postId, moderatorId, approved ? PostAuditAction.APPROVE : PostAuditAction.REJECT,
                 PostStatus.PENDING_REVIEW, target, reason, now);
+        searchOutboxService.recordRefresh(SearchDocumentType.POST, postId);
         return post;
     }
 

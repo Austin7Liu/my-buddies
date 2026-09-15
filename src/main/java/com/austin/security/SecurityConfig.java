@@ -34,7 +34,8 @@ public class SecurityConfig {
                                 "/api/v1/circles/**",
                                 "/api/v1/posts/**",
                                 "/api/v1/meetups/**",
-                                "/api/v1/profiles/**")
+                                "/api/v1/profiles/**",
+                                "/api/v1/search/**")
                         .permitAll()
                         .requestMatchers(
                                 "/api/v1/auth/sms-codes",

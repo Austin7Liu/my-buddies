@@ -50,6 +50,18 @@ public class GlobalExceptionHandler {
                 .body(ApiResponse.failure("TOO_MANY_REQUESTS", exception.getMessage()));
     }
 
+    @ExceptionHandler(SearchTemporarilyUnavailableException.class)
+    public ResponseEntity<ApiResponse<Void>> handleSearchUnavailable(
+            SearchTemporarilyUnavailableException exception) {
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(ApiResponse.failure("SEARCH_TEMPORARILY_UNAVAILABLE", exception.getMessage()));
+    }
+
+    @ExceptionHandler(InvalidRequestException.class)
+    public ResponseEntity<ApiResponse<Void>> handleInvalidRequest(InvalidRequestException exception) {
+        return ResponseEntity.badRequest().body(ApiResponse.failure("INVALID_ARGUMENT", exception.getMessage()));
+    }
+
     @ExceptionHandler({MethodArgumentNotValidException.class, ConstraintViolationException.class})
     public ResponseEntity<ApiResponse<Void>> handleValidation(Exception exception) {
         String message = exception instanceof MethodArgumentNotValidException methodArgumentException

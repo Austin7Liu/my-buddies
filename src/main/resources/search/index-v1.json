@@ -1,0 +1,33 @@
+{
+  "settings": {
+    "analysis": {
+      "analyzer": {
+        "my_buddies_chinese": {
+          "type": "smartcn"
+        }
+      }
+    }
+  },
+  "mappings": {
+    "dynamic": "strict",
+    "properties": {
+      "id": { "type": "keyword" },
+      "documentType": { "type": "keyword" },
+      "businessId": { "type": "long" },
+      "title": { "type": "text", "analyzer": "my_buddies_chinese" },
+      "content": { "type": "text", "analyzer": "my_buddies_chinese" },
+      "topicId": { "type": "long" },
+      "topicName": { "type": "text", "analyzer": "my_buddies_chinese" },
+      "circleId": { "type": "long" },
+      "circleName": { "type": "text", "analyzer": "my_buddies_chinese" },
+      "creatorAccountId": { "type": "long" },
+      "city": { "type": "keyword" },
+      "district": { "type": "keyword" },
+      "meetupMode": { "type": "keyword" },
+      "startTime": { "type": "date" },
+      "createdAt": { "type": "date" },
+      "updatedAt": { "type": "date" },
+      "visible": { "type": "boolean" }
+    }
+  }
+}

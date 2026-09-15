@@ -32,6 +32,8 @@ import com.austin.module.risk.service.RiskRestrictionService;
 import com.austin.module.notification.domain.NotificationReferenceType;
 import com.austin.module.notification.domain.NotificationType;
 import com.austin.module.notification.service.NotificationService;
+import com.austin.module.search.domain.SearchDocumentType;
+import com.austin.module.search.service.SearchOutboxService;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -66,6 +68,7 @@ public class MeetupServiceImpl implements MeetupService {
     private final AgeEligibilityPolicy agePolicy;
     private final CatalogService catalogService;
     private final CircleService circleService;
+    private final SearchOutboxService searchOutboxService;
     private final Clock clock;
 
     @Override
@@ -173,6 +176,7 @@ public class MeetupServiceImpl implements MeetupService {
                 .updatedAt(now)
                 .build());
         audit(meetup.getId(), creatorId, creatorId, MeetupAuditAction.CREATE, null, now);
+        searchOutboxService.recordRefresh(SearchDocumentType.MEETUP, meetup.getId());
         return meetup;
     }
 
@@ -190,6 +194,7 @@ public class MeetupServiceImpl implements MeetupService {
         persist(meetup);
         syncOnlineDetail(meetupId, command, now);
         audit(meetupId, creatorId, null, MeetupAuditAction.UPDATE, null, now);
+        searchOutboxService.recordRefresh(SearchDocumentType.MEETUP, meetupId);
         return meetup;
     }
 
@@ -211,6 +216,7 @@ public class MeetupServiceImpl implements MeetupService {
         meetup.setUpdatedAt(now);
         persist(meetup);
         audit(meetupId, creatorId, null, MeetupAuditAction.PUBLISH, null, now);
+        searchOutboxService.recordRefresh(SearchDocumentType.MEETUP, meetupId);
         return meetup;
     }
 
@@ -236,6 +242,7 @@ public class MeetupServiceImpl implements MeetupService {
         meetup.setUpdatedAt(now);
         persist(meetup);
         audit(meetupId, creatorId, null, MeetupAuditAction.CONFIRM, null, now);
+        searchOutboxService.recordRefresh(SearchDocumentType.MEETUP, meetupId);
         return meetup;
     }
 
@@ -260,6 +267,7 @@ public class MeetupServiceImpl implements MeetupService {
         meetup.setUpdatedAt(now);
         persist(meetup);
         audit(meetupId, creatorId, null, MeetupAuditAction.COMPLETE, null, now);
+        searchOutboxService.recordRefresh(SearchDocumentType.MEETUP, meetupId);
         return meetup;
     }
 
@@ -646,6 +654,7 @@ public class MeetupServiceImpl implements MeetupService {
                                 + ":" + participant.getAccountId());
             }
         }
+        searchOutboxService.recordRefresh(SearchDocumentType.MEETUP, meetup.getId());
         return meetup;
     }
 

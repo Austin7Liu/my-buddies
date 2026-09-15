@@ -16,6 +16,8 @@ import com.austin.module.identity.domain.IdentityStatus;
 import com.austin.module.identity.domain.IdentityVerification;
 import com.austin.module.identity.policy.AgeEligibilityPolicy;
 import com.austin.module.identity.service.IdentityVerificationService;
+import com.austin.module.search.domain.SearchDocumentType;
+import com.austin.module.search.service.SearchOutboxService;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -37,6 +39,7 @@ public class CircleServiceImpl implements CircleService {
     private final AgeEligibilityPolicy agePolicy;
     private final CatalogService catalogService;
     private final CircleMembershipService membershipService;
+    private final SearchOutboxService searchOutboxService;
     private final Clock clock;
 
     @Override @Transactional(readOnly = true)
@@ -81,6 +84,7 @@ public class CircleServiceImpl implements CircleService {
         catch (DuplicateKeyException ex) { throw new ConflictException("该话题下已存在同名圈子", ex); }
         membershipService.createOwnerMembership(creatorId, value.getId(), now);
         audit(value.getId(), creatorId, CircleAuditAction.SUBMIT, null, CircleStatus.PENDING_REVIEW, null, now);
+        searchOutboxService.recordRefresh(SearchDocumentType.CIRCLE, value.getId());
         return value;
     }
 
@@ -95,7 +99,8 @@ public class CircleServiceImpl implements CircleService {
         value.setName(name.trim()); value.setDescription(trim(description)); value.setCity(city.trim()); value.setDistrict(trim(district));
         value.setStatus(CircleStatus.PENDING_REVIEW); value.setRejectionReason(null); value.setReviewedBy(null); value.setReviewedAt(null); value.setUpdatedAt(now);
         persist(value); audit(circleId, creatorId, from == CircleStatus.REJECTED ? CircleAuditAction.RESUBMIT : CircleAuditAction.UPDATE,
-                from, CircleStatus.PENDING_REVIEW, null, now); return value;
+                from, CircleStatus.PENDING_REVIEW, null, now);
+        searchOutboxService.recordCascade(SearchDocumentType.CIRCLE, circleId); return value;
     }
 
     @Override @Transactional
@@ -113,7 +118,8 @@ public class CircleServiceImpl implements CircleService {
         if (enabled) catalogService.getTopic(value.getTopicId(), false);
         LocalDateTime now = LocalDateTime.now(clock); value.setStatus(target); value.setReviewedBy(reviewerId);
         value.setReviewedAt(now); value.setRejectionReason(null); value.setUpdatedAt(now); persist(value);
-        audit(circleId, reviewerId, enabled ? CircleAuditAction.RESTORE : CircleAuditAction.DISABLE, from, target, null, now); return value;
+        audit(circleId, reviewerId, enabled ? CircleAuditAction.RESTORE : CircleAuditAction.DISABLE, from, target, null, now);
+        searchOutboxService.recordCascade(SearchDocumentType.CIRCLE, circleId); return value;
     }
 
     private Circle review(long reviewerId, long circleId, boolean approved, String reason) {
@@ -124,7 +130,8 @@ public class CircleServiceImpl implements CircleService {
         value.setStatus(target); value.setRejectionReason(approved ? null : reason); value.setReviewedBy(reviewerId);
         value.setReviewedAt(now); value.setUpdatedAt(now); persist(value);
         audit(circleId, reviewerId, approved ? CircleAuditAction.APPROVE : CircleAuditAction.REJECT,
-                CircleStatus.PENDING_REVIEW, target, reason, now); return value;
+                CircleStatus.PENDING_REVIEW, target, reason, now);
+        searchOutboxService.recordCascade(SearchDocumentType.CIRCLE, circleId); return value;
     }
 
     private void ensureCreatorEligible(long accountId) {
