@@ -16,6 +16,7 @@ import java.io.IOException;
 import java.util.List;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -24,6 +25,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 @Component
 @RequiredArgsConstructor
+@Slf4j
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
@@ -51,19 +53,31 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     || account.getAccountStatus() == AccountStatus.CANCELLED) {
                 throw new IllegalArgumentException("账户不可用");
             }
-            List<SimpleGrantedAuthority> authorities = adminRoleService.findEffectiveRoles(claims.accountId())
-                    .stream()
-                    .map(role -> new SimpleGrantedAuthority(role.authority()))
-                    .toList();
+            List<SimpleGrantedAuthority> authorities = loadAuthorities(claims.accountId(), request);
             UsernamePasswordAuthenticationToken authentication =
                     new UsernamePasswordAuthenticationToken(
                             Long.toString(claims.accountId()), null, authorities);
             SecurityContextHolder.getContext().setAuthentication(authentication);
         } catch (RuntimeException exception) {
+            log.debug("Access authentication failed. path={}, exceptionType={}",
+                    request.getRequestURI(), exception.getClass().getName());
             SecurityContextHolder.clearContext();
             authenticationEntryPoint.commence(request, response, null);
             return;
         }
         filterChain.doFilter(request, response);
+    }
+
+    private List<SimpleGrantedAuthority> loadAuthorities(long accountId, HttpServletRequest request) {
+        try {
+            return adminRoleService.findEffectiveRoles(accountId)
+                    .stream()
+                    .map(role -> new SimpleGrantedAuthority(role.authority()))
+                    .toList();
+        } catch (RuntimeException exception) {
+            log.error("Failed to load admin roles; continuing without admin authorities. accountId={}, path={}",
+                    accountId, request.getRequestURI(), exception);
+            return List.of();
+        }
     }
 }

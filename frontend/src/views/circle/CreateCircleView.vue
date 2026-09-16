@@ -11,6 +11,7 @@ const router = useRouter()
 const formRef = ref()
 const submitting = ref(false)
 const submitError = ref('')
+const needsIdentity = ref(false)
 const categories = ref([])
 const topics = ref([])
 const form = reactive({ categoryId: null, topicId: route.query.topicId ? String(route.query.topicId) : null, name: '', description: '', city: '', district: '' })
@@ -37,6 +38,7 @@ async function submit() {
   if (submitting.value) return
 
   submitError.value = ''
+  needsIdentity.value = false
   const valid = await formRef.value.validate().catch(() => false)
   if (!valid) {
     submitError.value = '请检查并完善标红的必填项'
@@ -51,9 +53,14 @@ async function submit() {
     router.replace({ name: 'my-interests', query: { tab: 'created', circleId: response.data.id } })
   } catch (error) {
     submitError.value = error.response?.data?.error?.message ?? '提交失败，请检查后端服务和网络连接'
+    needsIdentity.value = submitError.value.includes('实名认证')
   } finally {
     submitting.value = false
   }
+}
+
+function goToIdentityVerification() {
+  router.push({ name: 'my-identity', query: { redirect: route.fullPath } })
 }
 onMounted(load)
 </script>
@@ -65,7 +72,10 @@ onMounted(load)
       <el-form-item label="圈子名称" prop="name"><el-input v-model="form.name" maxlength="64" show-word-limit /></el-form-item>
       <el-form-item label="介绍" prop="description"><el-input v-model="form.description" type="textarea" :rows="5" maxlength="500" show-word-limit /></el-form-item>
       <div class="form-grid"><el-form-item label="城市" prop="city"><el-input v-model="form.city" placeholder="例如：杭州" /></el-form-item><el-form-item label="区域"><el-input v-model="form.district" placeholder="例如：滨江区" /></el-form-item></div>
-      <el-alert v-if="submitError" :title="submitError" type="error" show-icon :closable="false" />
+      <div v-if="submitError" class="form-guidance">
+        <span>{{ submitError }}</span>
+        <el-button v-if="needsIdentity" type="primary" link @click="goToIdentityVerification">去完成实名认证</el-button>
+      </div>
       <el-button type="primary" size="large" :loading="submitting" @click="submit">提交审核</el-button>
     </el-form>
   </section>

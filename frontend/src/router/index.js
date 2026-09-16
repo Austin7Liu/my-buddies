@@ -28,6 +28,7 @@ const routes = [
       { path: 'circles/create', name: 'circle-create', component: () => import('../views/circle/CreateCircleView.vue'), meta: { requiresAuth: true } },
       { path: 'circles/:circleId', name: 'circle-detail', component: () => import('../views/circle/CircleDetailView.vue') },
       { path: 'me/interests', name: 'my-interests', component: () => import('../views/me/MyInterestsView.vue'), meta: { requiresAuth: true } },
+      { path: 'me/identity', name: 'my-identity', component: () => import('../views/me/IdentityVerificationView.vue'), meta: { requiresAuth: true } },
     ],
   },
   { path: '/:pathMatch(.*)*', redirect: '/' },
