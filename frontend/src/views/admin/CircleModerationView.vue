@@ -14,13 +14,33 @@ const rejectTarget = ref(null)
 
 async function load(current = 1) { loading.value = true; try { page.value = (await listAdminCircles(status.value, current)).data } finally { loading.value = false } }
 async function approve(row) {
-  await ElMessageBox.confirm(`确认通过“${row.name}”的审核？`, '通过 Circle', { type: 'warning' })
+  const confirmed = await ElMessageBox.confirm(
+    `通过后，“${row.name}”将对用户公开展示。`,
+    '确认通过 Circle 审核？',
+    {
+      type: 'warning',
+      confirmButtonText: '确认通过',
+      cancelButtonText: '取消',
+      distinguishCancelAndClose: true,
+    },
+  ).then(() => true).catch(() => false)
+  if (!confirmed) return
   actingId.value = row.id; try { await approveCircle(row.id); ElMessage.success('审核已通过'); await load(page.value.page) } finally { actingId.value = null }
 }
 async function reject(reason) { actingId.value = rejectTarget.value.id; try { await rejectCircle(rejectTarget.value.id, reason); rejectTarget.value = null; ElMessage.success('已驳回'); await load(page.value.page) } finally { actingId.value = null } }
 async function toggle(row) {
   const enabled = row.status === 'DISABLED'
-  await ElMessageBox.confirm(`确认${enabled ? '启用' : '停用'}“${row.name}”？`, '状态变更', { type: 'warning' })
+  const confirmed = await ElMessageBox.confirm(
+    enabled ? `启用后，“${row.name}”将恢复公开展示。` : `停用后，“${row.name}”将不再公开展示。`,
+    `确认${enabled ? '启用' : '停用'} Circle？`,
+    {
+      type: enabled ? 'warning' : 'error',
+      confirmButtonText: `确认${enabled ? '启用' : '停用'}`,
+      cancelButtonText: '取消',
+      distinguishCancelAndClose: true,
+    },
+  ).then(() => true).catch(() => false)
+  if (!confirmed) return
   actingId.value = row.id; try { await setCircleEnabled(row.id, enabled); ElMessage.success('状态已更新'); await load(page.value.page) } finally { actingId.value = null }
 }
 onMounted(load)

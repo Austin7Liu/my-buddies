@@ -109,6 +109,36 @@ class IdentityVerificationControllerTests {
     }
 
     @Test
+    void clearsPreviousFailureWhenRetrySucceeds() throws Exception {
+        UserAccount account = userAccountService.create("13900139105");
+
+        mockMvc.perform(post("/api/v1/identity-verification")
+                        .with(user(account.getId().toString()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"realName":"测试用户","identityNumber":"110105194912310020"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("FAILED"));
+
+        mockMvc.perform(post("/api/v1/identity-verification")
+                        .with(user(account.getId().toString()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"realName":"测试用户","identityNumber":"11010519491231002X"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("VERIFIED"))
+                .andExpect(jsonPath("$.data.failureCode").doesNotExist());
+
+        IdentityVerification stored = findByAccountId(account.getId());
+        assertThat(stored.getStatus().name()).isEqualTo("VERIFIED");
+        assertThat(stored.getFailureCode()).isNull();
+        assertThat(stored.getSubjectFingerprint()).hasSize(64);
+        assertThat(stored.getVerifiedAt()).isNotNull();
+    }
+
+    @Test
     void requiresAuthentication() throws Exception {
         mockMvc.perform(get("/api/v1/identity-verification/me"))
                 .andExpect(status().isUnauthorized());
@@ -119,4 +149,3 @@ class IdentityVerificationControllerTests {
                 .eq(IdentityVerification::getAccountId, accountId));
     }
 }
-

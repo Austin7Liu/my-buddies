@@ -6,6 +6,8 @@ import { getCircle, getMyMembership, joinCircle, leaveCircle, listCircleMembers 
 import { isAuthenticated } from '../../stores/auth.js'
 import EmptyState from '../../components/EmptyState.vue'
 import PaginationBar from '../../components/PaginationBar.vue'
+import PostCard from '../../components/PostCard.vue'
+import { listCirclePosts } from '../../api/post.js'
 
 const route = useRoute()
 const router = useRouter()
@@ -15,6 +17,8 @@ const membership = ref(null)
 const members = ref({ records: [], page: 1, size: 20, total: 0 })
 const loading = ref(true)
 const acting = ref(false)
+const postLoading = ref(true)
+const posts = ref({ records: [], page: 1, size: 20, total: 0 })
 
 async function load(page = 1) {
   loading.value = true
@@ -44,7 +48,16 @@ async function toggleMembership() {
   } finally { acting.value = false }
 }
 
-onMounted(load)
+async function loadPosts(page = 1) {
+  postLoading.value = true
+  try { posts.value = (await listCirclePosts(circleId, page)).data } finally { postLoading.value = false }
+}
+
+function createPost() {
+  router.push({ name: 'post-create', query: { circleId } })
+}
+
+onMounted(() => Promise.all([load(), loadPosts()]))
 </script>
 
 <template>
@@ -58,5 +71,9 @@ onMounted(load)
     <div class="member-list"><article v-for="member in members.records" :key="member.account.accountId"><span class="avatar">{{ member.account.nickname.slice(0, 1) }}</span><div><strong>{{ member.account.nickname }}</strong><small>{{ member.role === 'OWNER' ? '创建者' : '成员' }} · {{ member.account.verified ? '已实名' : '未实名' }}</small></div></article></div>
     <EmptyState v-if="!loading && !members.records.length" title="暂无成员" />
     <PaginationBar :page="Number(members.page)" :size="Number(members.size)" :total="Number(members.total)" @change="load" />
+    <div class="section-heading"><div><p class="eyebrow accent">CIRCLE POSTS</p><h2>圈子帖子</h2></div><el-button type="primary" round @click="createPost">在圈子发帖</el-button></div>
+    <div v-loading="postLoading" class="post-list"><PostCard v-for="post in posts.records" :key="post.id" :post="post" /></div>
+    <EmptyState v-if="!postLoading && !posts.records.length" title="圈子里还没有公开帖子" />
+    <PaginationBar :page="Number(posts.page)" :size="Number(posts.size)" :total="Number(posts.total)" @change="loadPosts" />
   </section>
 </template>

@@ -13,7 +13,18 @@ const actingId = ref(null)
 const reasonAction = ref(null)
 async function load(current = 1) { loading.value = true; try { page.value = (await listAdminPosts(status.value, current)).data } finally { loading.value = false } }
 async function simpleAction(row, action) {
-  await ElMessageBox.confirm(`确认${action === 'approve' ? '发布' : '恢复'}这篇帖子？`, '内容状态变更', { type: 'warning' })
+  const approving = action === 'approve'
+  const confirmed = await ElMessageBox.confirm(
+    approving ? '通过后，这篇帖子将对用户公开展示。' : '恢复后，这篇帖子将重新公开展示。',
+    `确认${approving ? '通过审核' : '恢复帖子'}？`,
+    {
+      type: 'warning',
+      confirmButtonText: approving ? '确认通过' : '确认恢复',
+      cancelButtonText: '取消',
+      distinguishCancelAndClose: true,
+    },
+  ).then(() => true).catch(() => false)
+  if (!confirmed) return
   actingId.value = row.id; try { await (action === 'approve' ? approvePost(row.id) : restorePost(row.id)); ElMessage.success('操作成功'); await load(page.value.page) } finally { actingId.value = null }
 }
 async function submitReason(reason) {

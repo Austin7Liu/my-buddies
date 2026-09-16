@@ -4,6 +4,9 @@ import { useRouter } from 'vue-router'
 import { listCategories, listTopics } from '../../api/catalog.js'
 import EmptyState from '../../components/EmptyState.vue'
 import TopicCard from '../../components/TopicCard.vue'
+import PostCard from '../../components/PostCard.vue'
+import PaginationBar from '../../components/PaginationBar.vue'
+import { listPublicPosts } from '../../api/post.js'
 
 const router = useRouter()
 const keyword = ref('')
@@ -11,6 +14,8 @@ const categories = ref([])
 const activeCategoryId = ref(null)
 const topics = ref([])
 const loading = ref(true)
+const postLoading = ref(true)
+const posts = ref({ records: [], page: 1, size: 20, total: 0 })
 
 async function loadCategories() {
   loading.value = true
@@ -33,7 +38,11 @@ function searchNow() {
 }
 
 function updateFollow(topic, followed) { topic.followedByMe = followed }
-onMounted(loadCategories)
+async function loadPosts(page = 1) {
+  postLoading.value = true
+  try { posts.value = (await listPublicPosts(page)).data } finally { postLoading.value = false }
+}
+onMounted(() => Promise.all([loadCategories(), loadPosts()]))
 </script>
 
 <template>
@@ -46,5 +55,9 @@ onMounted(loadCategories)
     <div class="category-tabs"><button v-for="category in categories" :key="category.id" :class="{ active: category.id === activeCategoryId }" @click="selectCategory(category.id)">{{ category.name }}</button></div>
     <div v-loading="loading" class="content-grid"><TopicCard v-for="topic in topics" :key="topic.id" :topic="topic" @follow-change="updateFollow(topic, $event)" /></div>
     <EmptyState v-if="!loading && !topics.length" title="这个分类还没有公开话题" />
+    <div class="section-heading"><div><p class="eyebrow accent">LATEST POSTS</p><h2>最新帖子</h2></div><RouterLink to="/posts/create"><el-button type="primary" round>发布帖子</el-button></RouterLink></div>
+    <div v-loading="postLoading" class="post-list"><PostCard v-for="post in posts.records" :key="post.id" :post="post" /></div>
+    <EmptyState v-if="!postLoading && !posts.records.length" title="还没有公开帖子" description="登录后发布第一条内容吧。" />
+    <PaginationBar :page="Number(posts.page)" :size="Number(posts.size)" :total="Number(posts.total)" @change="loadPosts" />
   </section>
 </template>
