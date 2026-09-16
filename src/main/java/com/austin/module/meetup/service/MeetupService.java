@@ -36,6 +36,8 @@ public interface MeetupService {
 
     MeetupParticipant withdraw(long accountId, long meetupId, String reason);
 
+    MeetupParticipant getMyParticipation(long accountId, long meetupId);
+
     IPage<MeetupParticipant> listApplications(long creatorId, long meetupId, long page, long size);
 
     long acceptedCount(long meetupId);

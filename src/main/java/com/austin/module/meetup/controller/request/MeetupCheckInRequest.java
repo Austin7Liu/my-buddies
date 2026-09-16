@@ -13,5 +13,10 @@ public record MeetupCheckInRequest(
         @NotNull(message = "经度不能为空")
         @DecimalMin(value = "-180.0", message = "经度不能小于 -180")
         @DecimalMax(value = "180.0", message = "经度不能大于 180")
-        BigDecimal longitude) {
+        BigDecimal longitude,
+
+        @NotNull(message = "定位精度不能为空")
+        @DecimalMin(value = "0.0", inclusive = false, message = "定位精度必须大于 0")
+        @DecimalMax(value = "10000.0", message = "定位精度不能超过 10000 米")
+        BigDecimal accuracyMeters) {
 }

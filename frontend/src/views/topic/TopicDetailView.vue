@@ -9,6 +9,8 @@ import EmptyState from '../../components/EmptyState.vue'
 import PaginationBar from '../../components/PaginationBar.vue'
 import PostCard from '../../components/PostCard.vue'
 import { listTopicPosts } from '../../api/post.js'
+import { listTopicMeetups } from '../../api/meetup.js'
+import MeetupCard from '../../components/MeetupCard.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -17,6 +19,8 @@ const circles = ref({ records: [], page: 1, size: 20, total: 0 })
 const loading = ref(true)
 const postLoading = ref(true)
 const posts = ref({ records: [], page: 1, size: 20, total: 0 })
+const meetupLoading = ref(true)
+const meetups = ref({ records: [], page: 1, size: 20, total: 0 })
 const topicId = String(route.params.topicId)
 
 async function load(page = 1) {
@@ -30,11 +34,16 @@ async function load(page = 1) {
 
 function create() { router.push({ name: 'circle-create', query: { topicId } }) }
 function createPost() { router.push({ name: 'post-create', query: { topicId } }) }
+function createMeetup() { router.push({ name: 'meetup-create', query: { topicId } }) }
 async function loadPosts(page = 1) {
   postLoading.value = true
   try { posts.value = (await listTopicPosts(topicId, page)).data } finally { postLoading.value = false }
 }
-onMounted(() => Promise.all([load(), loadPosts()]))
+async function loadMeetups(page = 1) {
+  meetupLoading.value = true
+  try { meetups.value = (await listTopicMeetups(topicId, page)).data } finally { meetupLoading.value = false }
+}
+onMounted(() => Promise.all([load(), loadPosts(), loadMeetups()]))
 </script>
 
 <template>
@@ -45,6 +54,10 @@ onMounted(() => Promise.all([load(), loadPosts()]))
     <div class="content-grid"><CircleCard v-for="circle in circles.records" :key="circle.id" :circle="circle" /></div>
     <EmptyState v-if="!loading && !circles.records.length" title="还没有公开圈子" description="你可以创建第一个更具体的本地社区。" />
     <PaginationBar :page="Number(circles.page)" :size="Number(circles.size)" :total="Number(circles.total)" @change="load" />
+    <div class="section-heading"><div><p class="eyebrow accent">TOPIC MEETUPS</p><h2>#{{ topic?.name }} 活动</h2></div><el-button type="primary" round @click="createMeetup">创建活动</el-button></div>
+    <div v-loading="meetupLoading" class="meetup-grid"><MeetupCard v-for="meetup in meetups.records" :key="meetup.id" :meetup="meetup" /></div>
+    <EmptyState v-if="!meetupLoading && !meetups.records.length" title="这个话题还没有公开活动" />
+    <PaginationBar :page="Number(meetups.page)" :size="Number(meetups.size)" :total="Number(meetups.total)" @change="loadMeetups" />
     <div class="section-heading"><div><p class="eyebrow accent">TOPIC POSTS</p><h2>#{{ topic?.name }} 帖子</h2></div><el-button type="primary" round @click="createPost">发布帖子</el-button></div>
     <div v-loading="postLoading" class="post-list"><PostCard v-for="post in posts.records" :key="post.id" :post="post" /></div>
     <EmptyState v-if="!postLoading && !posts.records.length" title="这个话题还没有公开帖子" />

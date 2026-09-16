@@ -292,6 +292,14 @@ class MeetupControllerTests {
                 .andExpect(jsonPath("$.data.profile.accountId").value(applicant.getId()))
                 .andExpect(jsonPath("$.data.profile.avatarCode").value("PANDA"))
                 .andExpect(jsonPath("$.data.profile.verified").value(true));
+        mockMvc.perform(get("/api/v1/meetups/{meetupId}/participation/me", meetup.getId())
+                        .with(user(applicant.getId().toString())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.accountId").value(applicant.getId()))
+                .andExpect(jsonPath("$.data.status").value("APPLIED"));
+        mockMvc.perform(get("/api/v1/meetups/{meetupId}/participation/me", meetup.getId())
+                        .with(user(moderator.getId().toString())))
+                .andExpect(status().isNotFound());
         mockMvc.perform(post("/api/v1/meetups/{meetupId}/applications/{accountId}/accept",
                         meetup.getId(), applicant.getId())
                         .with(user(creator.getId().toString())))
@@ -433,11 +441,28 @@ class MeetupControllerTests {
         mockMvc.perform(post("/api/v1/meetups/{meetupId}/check-ins", meetup.getId())
                         .with(user(applicant.getId().toString()))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"latitude\":31.2304,\"longitude\":121.4737}"))
+                        .content("{\"latitude\":30.2084,\"longitude\":120.2123}"))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(post("/api/v1/meetups/{meetupId}/check-ins", meetup.getId())
+                        .with(user(applicant.getId().toString()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"latitude\":30.2084,\"longitude\":120.2123,\"accuracyMeters\":-1}"))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(post("/api/v1/meetups/{meetupId}/check-ins", meetup.getId())
+                        .with(user(applicant.getId().toString()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"latitude\":30.2084,\"longitude\":120.2123,\"accuracyMeters\":150}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.message").value("当前定位精度不足，请到开阔处后重试"));
+
+        mockMvc.perform(post("/api/v1/meetups/{meetupId}/check-ins", meetup.getId())
+                        .with(user(applicant.getId().toString()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"latitude\":31.2304,\"longitude\":121.4737,\"accuracyMeters\":20}"))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.error.message").value("当前位置超出签到范围"));
 
-        String nearbyLocation = "{\"latitude\":30.2084,\"longitude\":120.2123}";
+        String nearbyLocation = "{\"latitude\":30.2084,\"longitude\":120.2123,\"accuracyMeters\":20}";
         String firstResponse = mockMvc.perform(post("/api/v1/meetups/{meetupId}/check-ins", meetup.getId())
                         .with(user(applicant.getId().toString()))
                         .contentType(MediaType.APPLICATION_JSON)
@@ -445,6 +470,9 @@ class MeetupControllerTests {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.accountId").value(applicant.getId()))
                 .andExpect(jsonPath("$.data.distanceMeters").value(0))
+                .andExpect(jsonPath("$.data.latitude").doesNotExist())
+                .andExpect(jsonPath("$.data.longitude").doesNotExist())
+                .andExpect(jsonPath("$.data.accuracyMeters").doesNotExist())
                 .andReturn().getResponse().getContentAsString();
         String repeatedResponse = mockMvc.perform(post("/api/v1/meetups/{meetupId}/check-ins", meetup.getId())
                         .with(user(applicant.getId().toString()))
@@ -643,7 +671,7 @@ class MeetupControllerTests {
     }
 
     @Test
-    void offlineMeetupRequiresLocation() throws Exception {
+    void offlineMeetupRequiresLocationDetails() throws Exception {
         mockMvc.perform(post("/api/v1/meetups")
                         .with(user(creator.getId().toString()))
                         .contentType(MediaType.APPLICATION_JSON)
@@ -651,7 +679,57 @@ class MeetupControllerTests {
                                 .replace("\"locationName\":\"滨江体育馆\",", "")))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.error.message")
-                        .value("线下活动必须填写地点信息和经纬度"));
+                        .value("线下活动必须填写完整地点信息"));
+    }
+
+    @Test
+    void offlineDraftCanOmitCheckInLocationButCannotPublish() throws Exception {
+        String draftWithoutCheckInLocation = body(topic.getId(), null, 4)
+                .replace("\"locationLatitude\":30.2084,\"locationLongitude\":120.2123,", "")
+                .replace("\"checkInRadiusMeters\":300,", "");
+        mockMvc.perform(post("/api/v1/meetups")
+                        .with(user(creator.getId().toString()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(draftWithoutCheckInLocation))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("DRAFT"))
+                .andExpect(jsonPath("$.data.locationLatitude").doesNotExist())
+                .andExpect(jsonPath("$.data.locationLongitude").doesNotExist())
+                .andExpect(jsonPath("$.data.checkInRadiusMeters").doesNotExist());
+
+        Meetup meetup = findMeetup();
+        assertThat(meetup.getLocationLatitude()).isNull();
+        assertThat(meetup.getLocationLongitude()).isNull();
+        assertThat(meetup.getCheckInRadiusMeters()).isNull();
+        mockMvc.perform(post("/api/v1/meetups/{meetupId}/publish", meetup.getId())
+                        .with(user(creator.getId().toString())))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.message")
+                        .value("发布线下活动前必须设置签到位置和签到半径"));
+    }
+
+    @Test
+    void offlineDraftRejectsPartialCheckInLocation() throws Exception {
+        mockMvc.perform(post("/api/v1/meetups")
+                        .with(user(creator.getId().toString()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body(topic.getId(), null, 4)
+                                .replace("\"locationLongitude\":120.2123,", "")))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.message")
+                        .value("活动地点经纬度必须同时填写或同时留空"));
+    }
+
+    @Test
+    void offlineDraftRejectsRadiusWithoutCheckInLocation() throws Exception {
+        mockMvc.perform(post("/api/v1/meetups")
+                        .with(user(creator.getId().toString()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body(topic.getId(), null, 4)
+                                .replace("\"locationLatitude\":30.2084,\"locationLongitude\":120.2123,", "")))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.message")
+                        .value("设置签到半径前必须先设置活动地点坐标"));
     }
 
     @Test

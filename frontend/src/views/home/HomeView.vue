@@ -7,6 +7,8 @@ import TopicCard from '../../components/TopicCard.vue'
 import PostCard from '../../components/PostCard.vue'
 import PaginationBar from '../../components/PaginationBar.vue'
 import { listPublicPosts } from '../../api/post.js'
+import { listMeetups } from '../../api/meetup.js'
+import MeetupCard from '../../components/MeetupCard.vue'
 
 const router = useRouter()
 const keyword = ref('')
@@ -16,6 +18,7 @@ const topics = ref([])
 const loading = ref(true)
 const postLoading = ref(true)
 const posts = ref({ records: [], page: 1, size: 20, total: 0 })
+const meetups = ref({ records: [] })
 
 async function loadCategories() {
   loading.value = true
@@ -42,7 +45,8 @@ async function loadPosts(page = 1) {
   postLoading.value = true
   try { posts.value = (await listPublicPosts(page)).data } finally { postLoading.value = false }
 }
-onMounted(() => Promise.all([loadCategories(), loadPosts()]))
+async function loadMeetups() { meetups.value = (await listMeetups(1, 3)).data }
+onMounted(() => Promise.all([loadCategories(), loadPosts(), loadMeetups()]))
 </script>
 
 <template>
@@ -55,6 +59,9 @@ onMounted(() => Promise.all([loadCategories(), loadPosts()]))
     <div class="category-tabs"><button v-for="category in categories" :key="category.id" :class="{ active: category.id === activeCategoryId }" @click="selectCategory(category.id)">{{ category.name }}</button></div>
     <div v-loading="loading" class="content-grid"><TopicCard v-for="topic in topics" :key="topic.id" :topic="topic" @follow-change="updateFollow(topic, $event)" /></div>
     <EmptyState v-if="!loading && !topics.length" title="这个分类还没有公开话题" />
+    <div class="section-heading"><div><p class="eyebrow accent">UPCOMING MEETUPS</p><h2>近期活动</h2></div><RouterLink to="/meetups"><el-button round>查看全部</el-button></RouterLink></div>
+    <div class="meetup-grid"><MeetupCard v-for="meetup in meetups.records" :key="meetup.id" :meetup="meetup" /></div>
+    <EmptyState v-if="!meetups.records.length" title="还没有公开活动" />
     <div class="section-heading"><div><p class="eyebrow accent">LATEST POSTS</p><h2>最新帖子</h2></div><RouterLink to="/posts/create"><el-button type="primary" round>发布帖子</el-button></RouterLink></div>
     <div v-loading="postLoading" class="post-list"><PostCard v-for="post in posts.records" :key="post.id" :post="post" /></div>
     <EmptyState v-if="!postLoading && !posts.records.length" title="还没有公开帖子" description="登录后发布第一条内容吧。" />

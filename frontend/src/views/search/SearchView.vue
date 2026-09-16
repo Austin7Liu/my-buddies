@@ -17,6 +17,8 @@ const typeLabels = { TOPIC: '话题', CIRCLE: '圈子', POST: '帖子', MEETUP: 
 function detailRoute(document) {
   if (document.documentType === 'TOPIC') return `/topics/${document.businessId}`
   if (document.documentType === 'CIRCLE') return `/circles/${document.businessId}`
+  if (document.documentType === 'POST') return `/posts/${document.businessId}`
+  if (document.documentType === 'MEETUP') return `/meetups/${document.businessId}`
   return null
 }
 

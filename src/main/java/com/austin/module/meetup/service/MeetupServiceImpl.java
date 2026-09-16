@@ -151,8 +151,7 @@ public class MeetupServiceImpl implements MeetupService {
                 .address(trim(command.address()))
                 .locationLatitude(command.locationLatitude())
                 .locationLongitude(command.locationLongitude())
-                .checkInRadiusMeters(command.meetupMode() == MeetupMode.OFFLINE
-                        ? defaultRadius(command.checkInRadiusMeters()) : null)
+                .checkInRadiusMeters(checkInRadius(command))
                 .capacity(command.capacity())
                 .minimumAge(command.minimumAge())
                 .maximumAge(command.maximumAge())
@@ -207,6 +206,7 @@ public class MeetupServiceImpl implements MeetupService {
         }
         ensureEligible(creatorId, "发布活动");
         validateAssociation(meetup);
+        validatePublishLocation(meetup);
         ensureNoTimeConflict(creatorId, meetup);
         LocalDateTime now = LocalDateTime.now(clock);
         if (!meetup.getApplicationDeadline().isAfter(now)) {
@@ -416,6 +416,17 @@ public class MeetupServiceImpl implements MeetupService {
 
     @Override
     @Transactional(readOnly = true)
+    public MeetupParticipant getMyParticipation(long accountId, long meetupId) {
+        requireMeetup(meetupId);
+        MeetupParticipant participant = findParticipant(meetupId, accountId);
+        if (participant == null) {
+            throw new ResourceNotFoundException("活动参与记录不存在");
+        }
+        return participant;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public IPage<MeetupParticipant> listApplications(long creatorId, long meetupId, long page, long size) {
         requireCreator(creatorId, meetupId);
         return participantMapper.selectPage(new Page<>(page, size), new LambdaQueryWrapper<MeetupParticipant>()
@@ -520,8 +531,7 @@ public class MeetupServiceImpl implements MeetupService {
         meetup.setAddress(trim(command.address()));
         meetup.setLocationLatitude(command.locationLatitude());
         meetup.setLocationLongitude(command.locationLongitude());
-        meetup.setCheckInRadiusMeters(command.meetupMode() == MeetupMode.OFFLINE
-                ? defaultRadius(command.checkInRadiusMeters()) : null);
+        meetup.setCheckInRadiusMeters(checkInRadius(command));
         meetup.setCapacity(command.capacity());
         meetup.setMinimumAge(command.minimumAge());
         meetup.setMaximumAge(command.maximumAge());
@@ -535,9 +545,16 @@ public class MeetupServiceImpl implements MeetupService {
         }
         if (command.meetupMode() == MeetupMode.OFFLINE) {
             if (isBlank(command.city()) || isBlank(command.district())
-                    || isBlank(command.locationName()) || isBlank(command.address())
-                    || command.locationLatitude() == null || command.locationLongitude() == null) {
-                throw new ConflictException("线下活动必须填写地点信息和经纬度");
+                    || isBlank(command.locationName()) || isBlank(command.address())) {
+                throw new ConflictException("线下活动必须填写完整地点信息");
+            }
+            boolean hasLatitude = command.locationLatitude() != null;
+            boolean hasLongitude = command.locationLongitude() != null;
+            if (hasLatitude != hasLongitude) {
+                throw new ConflictException("活动地点经纬度必须同时填写或同时留空");
+            }
+            if (!hasLatitude && command.checkInRadiusMeters() != null) {
+                throw new ConflictException("设置签到半径前必须先设置活动地点坐标");
             }
             if (!isBlank(command.onlinePlatform()) || !isBlank(command.serverRegion())
                     || !isBlank(command.accessInstructions())) {
@@ -553,6 +570,14 @@ public class MeetupServiceImpl implements MeetupService {
         }
         if (isBlank(command.onlinePlatform()) || isBlank(command.accessInstructions())) {
             throw new ConflictException("线上活动必须填写线上平台和加入说明");
+        }
+    }
+
+    private void validatePublishLocation(Meetup meetup) {
+        if (meetup.getMeetupMode() == MeetupMode.OFFLINE
+                && (meetup.getLocationLatitude() == null || meetup.getLocationLongitude() == null
+                        || meetup.getCheckInRadiusMeters() == null)) {
+            throw new ConflictException("发布线下活动前必须设置签到位置和签到半径");
         }
     }
 
@@ -728,6 +753,11 @@ public class MeetupServiceImpl implements MeetupService {
 
     private int defaultRadius(Integer radius) {
         return radius == null ? 300 : radius;
+    }
+
+    private Integer checkInRadius(MeetupCommand command) {
+        return command.meetupMode() == MeetupMode.OFFLINE && command.locationLatitude() != null
+                ? defaultRadius(command.checkInRadiusMeters()) : null;
     }
 
     private void audit(long meetupId, long operatorId, Long participantId, MeetupAuditAction action,

@@ -3,6 +3,7 @@ package com.austin.module.meetup.service;
 import com.austin.common.exception.ConflictException;
 import com.austin.common.exception.ForbiddenException;
 import com.austin.common.exception.ResourceNotFoundException;
+import com.austin.module.meetup.config.MeetupCheckInProperties;
 import com.austin.module.meetup.domain.Meetup;
 import com.austin.module.meetup.domain.MeetupAuditAction;
 import com.austin.module.meetup.domain.MeetupAuditLog;
@@ -37,9 +38,15 @@ public class MeetupCheckInService {
     private final MeetupAuditLogMapper auditMapper;
     private final GeoDistanceCalculator distanceCalculator;
     private final Clock clock;
+    private final MeetupCheckInProperties properties;
 
     @Transactional
-    public MeetupCheckIn checkIn(long accountId, long meetupId, BigDecimal latitude, BigDecimal longitude) {
+    public MeetupCheckIn checkIn(
+            long accountId,
+            long meetupId,
+            BigDecimal latitude,
+            BigDecimal longitude,
+            BigDecimal accuracyMeters) {
         Meetup meetup = requireMeetup(meetupId);
         ensureAccepted(meetupId, accountId);
         MeetupCheckIn existing = find(meetupId, accountId);
@@ -55,6 +62,9 @@ public class MeetupCheckInService {
         if (meetup.getLocationLatitude() == null || meetup.getLocationLongitude() == null
                 || meetup.getCheckInRadiusMeters() == null) {
             throw new ConflictException("该活动未配置签到位置");
+        }
+        if (accuracyMeters.compareTo(properties.maxAccuracyMeters()) > 0) {
+            throw new ConflictException("当前定位精度不足，请到开阔处后重试");
         }
         LocalDateTime now = LocalDateTime.now(clock);
         if (now.isBefore(meetup.getStartTime().minusMinutes(30))) {

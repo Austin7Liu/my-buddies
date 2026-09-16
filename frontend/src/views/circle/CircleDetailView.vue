@@ -8,6 +8,8 @@ import EmptyState from '../../components/EmptyState.vue'
 import PaginationBar from '../../components/PaginationBar.vue'
 import PostCard from '../../components/PostCard.vue'
 import { listCirclePosts } from '../../api/post.js'
+import { listCircleMeetups } from '../../api/meetup.js'
+import MeetupCard from '../../components/MeetupCard.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -19,6 +21,8 @@ const loading = ref(true)
 const acting = ref(false)
 const postLoading = ref(true)
 const posts = ref({ records: [], page: 1, size: 20, total: 0 })
+const meetupLoading = ref(true)
+const meetups = ref({ records: [], page: 1, size: 20, total: 0 })
 
 async function load(page = 1) {
   loading.value = true
@@ -57,7 +61,14 @@ function createPost() {
   router.push({ name: 'post-create', query: { circleId } })
 }
 
-onMounted(() => Promise.all([load(), loadPosts()]))
+function createMeetup() { router.push({ name: 'meetup-create', query: { circleId } }) }
+
+async function loadMeetups(page = 1) {
+  meetupLoading.value = true
+  try { meetups.value = (await listCircleMeetups(circleId, page)).data } finally { meetupLoading.value = false }
+}
+
+onMounted(() => Promise.all([load(), loadPosts(), loadMeetups()]))
 </script>
 
 <template>
@@ -71,6 +82,10 @@ onMounted(() => Promise.all([load(), loadPosts()]))
     <div class="member-list"><article v-for="member in members.records" :key="member.account.accountId"><span class="avatar">{{ member.account.nickname.slice(0, 1) }}</span><div><strong>{{ member.account.nickname }}</strong><small>{{ member.role === 'OWNER' ? '创建者' : '成员' }} · {{ member.account.verified ? '已实名' : '未实名' }}</small></div></article></div>
     <EmptyState v-if="!loading && !members.records.length" title="暂无成员" />
     <PaginationBar :page="Number(members.page)" :size="Number(members.size)" :total="Number(members.total)" @change="load" />
+    <div class="section-heading"><div><p class="eyebrow accent">CIRCLE MEETUPS</p><h2>圈子活动</h2></div><el-button type="primary" round @click="createMeetup">在圈子创建活动</el-button></div>
+    <div v-loading="meetupLoading" class="meetup-grid"><MeetupCard v-for="meetup in meetups.records" :key="meetup.id" :meetup="meetup" /></div>
+    <EmptyState v-if="!meetupLoading && !meetups.records.length" title="圈子里还没有公开活动" />
+    <PaginationBar :page="Number(meetups.page)" :size="Number(meetups.size)" :total="Number(meetups.total)" @change="loadMeetups" />
     <div class="section-heading"><div><p class="eyebrow accent">CIRCLE POSTS</p><h2>圈子帖子</h2></div><el-button type="primary" round @click="createPost">在圈子发帖</el-button></div>
     <div v-loading="postLoading" class="post-list"><PostCard v-for="post in posts.records" :key="post.id" :post="post" /></div>
     <EmptyState v-if="!postLoading && !posts.records.length" title="圈子里还没有公开帖子" />

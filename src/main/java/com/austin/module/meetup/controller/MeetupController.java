@@ -81,7 +81,7 @@ public class MeetupController {
     public ApiResponse<MeetupResponse> get(
             Authentication authentication,
             @PathVariable @Positive long meetupId) {
-        Long viewerId = authentication == null ? null : accountId(authentication);
+        Long viewerId = optionalAccountId(authentication);
         Meetup meetup = meetupService.getVisible(viewerId, meetupId);
         return ApiResponse.success(response(meetup, meetupService.canSeePrivateDetails(viewerId, meetup)));
     }
@@ -192,6 +192,15 @@ public class MeetupController {
                 meetupService.withdraw(accountId(authentication), meetupId, request.reason())));
     }
 
+    @GetMapping("/meetups/{meetupId}/participation/me")
+    @PreAuthorize("isAuthenticated()")
+    public ApiResponse<MeetupParticipantResponse> getMyParticipation(
+            Authentication authentication,
+            @PathVariable @Positive long meetupId) {
+        return ApiResponse.success(participantResponse(
+                meetupService.getMyParticipation(accountId(authentication), meetupId)));
+    }
+
     @PostMapping("/meetups/{meetupId}/check-ins")
     @PreAuthorize("isAuthenticated()")
     public ApiResponse<MeetupCheckInResponse> checkIn(
@@ -199,7 +208,8 @@ public class MeetupController {
             @PathVariable @Positive long meetupId,
             @Valid @RequestBody MeetupCheckInRequest request) {
         return ApiResponse.success(MeetupCheckInResponse.from(checkInService.checkIn(
-                accountId(authentication), meetupId, request.latitude(), request.longitude())));
+                accountId(authentication), meetupId, request.latitude(), request.longitude(),
+                request.accuracyMeters())));
     }
 
     @GetMapping("/meetups/{meetupId}/check-ins/me")
@@ -311,5 +321,12 @@ public class MeetupController {
 
     private long accountId(Authentication authentication) {
         return Long.parseLong(authentication.getName());
+    }
+
+    private Long optionalAccountId(Authentication authentication) {
+        return authentication == null || !authentication.isAuthenticated()
+                || "anonymousUser".equals(authentication.getPrincipal())
+                ? null
+                : accountId(authentication);
     }
 }

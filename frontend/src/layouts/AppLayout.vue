@@ -52,7 +52,7 @@ watch(() => route.fullPath, loadIdentityStatus)
     <header class="topbar">
       <RouterLink class="brand" to="/"><span class="brand-mark">MB</span><span>My Buddies</span></RouterLink>
       <nav class="main-nav" aria-label="主导航">
-        <RouterLink to="/">发现</RouterLink><RouterLink to="/search">搜索</RouterLink><RouterLink v-if="isAuthenticated()" to="/me/feed">我的动态</RouterLink><RouterLink v-if="isAuthenticated()" to="/me/interests">我的兴趣</RouterLink><RouterLink v-if="isAuthenticated()" to="/me/bookmarks">我的收藏</RouterLink><RouterLink v-if="isAuthenticated()" to="/me/posts">我的帖子</RouterLink><RouterLink v-if="isContentAdmin()" to="/admin">管理后台</RouterLink>
+        <RouterLink to="/">发现</RouterLink><RouterLink to="/meetups">活动</RouterLink><RouterLink to="/search">搜索</RouterLink><RouterLink v-if="isAuthenticated()" to="/me/feed">我的动态</RouterLink><RouterLink v-if="isAuthenticated()" to="/me/interests">我的兴趣</RouterLink><RouterLink v-if="isAuthenticated()" to="/me/bookmarks">我的收藏</RouterLink><RouterLink v-if="isAuthenticated()" to="/me/posts">我的帖子</RouterLink><RouterLink v-if="isContentAdmin()" to="/admin">管理后台</RouterLink>
       </nav>
       <div class="account-area">
         <template v-if="isAuthenticated()"><RouterLink class="identity-link" :class="{ verified: identityStatus === 'VERIFIED' }" to="/me/identity">{{ identityStatus === 'VERIFIED' ? '已实名' : '去认证' }}</RouterLink><div class="account-copy"><strong>{{ authState.account?.maskedPhone ?? '已登录用户' }}</strong><span>账户 #{{ authState.account?.id ?? '-' }}</span></div><el-button :loading="loggingOut" plain round @click="logout">退出</el-button></template>

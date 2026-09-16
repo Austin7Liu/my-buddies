@@ -33,6 +33,9 @@ mybatis-plus:
       logic-not-delete-value: 0
 
 app:
+  meetup:
+    check-in:
+      max-accuracy-meters: ${MEETUP_CHECK_IN_MAX_ACCURACY_METERS:100}
   search:
     enabled: ${SEARCH_ENABLED:true}
     index-alias: ${SEARCH_INDEX_ALIAS:my-buddies-search}
