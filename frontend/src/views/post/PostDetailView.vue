@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, nextTick, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
@@ -12,18 +12,24 @@ import {
 import EmptyState from '../../components/EmptyState.vue'
 import PaginationBar from '../../components/PaginationBar.vue'
 import PostCard from '../../components/PostCard.vue'
+import ContentReportDialog from '../../components/ContentReportDialog.vue'
 import { authState, isAuthenticated } from '../../stores/auth.js'
 import { commentStatusLabel, validateComment } from '../../utils/post.js'
 
 const route = useRoute()
 const router = useRouter()
 const postId = String(route.params.postId)
+const targetCommentId = typeof route.query.commentId === 'string' ? route.query.commentId : ''
+const requestedPage = Number(route.query.page)
+const initialCommentPage = Number.isInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1
 const post = ref(null)
 const comments = ref({ records: [], page: 1, size: 20, total: 0 })
 const loading = ref(true)
 const commentLoading = ref(false)
 const composer = reactive({ content: '', parentCommentId: null, replyingTo: '' })
 const editing = reactive({ open: false, id: '', content: '' })
+const targetFocused = ref(false)
+const reportingCommentId = ref('')
 
 const currentAccountId = computed(() => String(authState.account?.id ?? ''))
 
@@ -37,12 +43,20 @@ function login() {
 
 async function loadComments(page = 1) {
   comments.value = (await listPostComments(postId, page)).data
+  if (!targetFocused.value && targetCommentId && Number(comments.value.page) === initialCommentPage) {
+    await nextTick()
+    const target = document.getElementById(`comment-${targetCommentId}`)
+    if (target) {
+      targetFocused.value = true
+      target.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+  }
 }
 
 async function load() {
   loading.value = true
   try {
-    const [postResponse] = await Promise.all([getPost(postId), loadComments()])
+    const [postResponse] = await Promise.all([getPost(postId), loadComments(initialCommentPage)])
     post.value = postResponse.data
   } finally {
     loading.value = false
@@ -108,6 +122,11 @@ async function removeComment(comment) {
   await loadComments(comments.value.page)
 }
 
+function reportComment(comment) {
+  if (!isAuthenticated()) return login()
+  reportingCommentId.value = comment.id
+}
+
 onMounted(load)
 </script>
 
@@ -124,11 +143,11 @@ onMounted(load)
     </div>
 
     <div class="comment-list">
-      <article v-for="comment in comments.records" :key="comment.id" class="comment-card" :class="{ reply: comment.parentCommentId }">
+      <article v-for="comment in comments.records" :id="`comment-${comment.id}`" :key="comment.id" class="comment-card" :class="{ reply: comment.parentCommentId, targeted: String(comment.id) === targetCommentId }">
         <div class="comment-head"><div class="post-author"><span class="avatar">{{ comment.author?.nickname?.slice(0, 1) || '?' }}</span><div><RouterLink v-if="comment.author?.accountId" class="profile-link" :to="`/profiles/${comment.author.accountId}`"><strong>{{ comment.author.nickname }}</strong></RouterLink><strong v-else>已注销用户</strong><small>{{ comment.createdAt }}</small></div></div><span v-if="comment.parentCommentId" class="reply-label">回复评论 #{{ comment.parentCommentId }}</span></div>
         <p v-if="comment.status === 'VISIBLE'" class="comment-content">{{ comment.content }}</p>
         <p v-else class="comment-placeholder">{{ commentStatusLabel(comment.status) }}</p>
-        <footer v-if="comment.status === 'VISIBLE'"><el-button v-if="!comment.parentCommentId" link @click="replyTo(comment)">回复</el-button><template v-if="isMine(comment)"><el-button link type="primary" @click="startEdit(comment)">编辑</el-button><el-button link type="danger" @click="removeComment(comment)">删除</el-button></template></footer>
+        <footer v-if="comment.status === 'VISIBLE'"><el-button v-if="!comment.parentCommentId" link @click="replyTo(comment)">回复</el-button><el-button v-if="!isMine(comment)" link type="danger" @click="reportComment(comment)">举报</el-button><template v-if="isMine(comment)"><el-button link type="primary" @click="startEdit(comment)">编辑</el-button><el-button link type="danger" @click="removeComment(comment)">删除</el-button></template></footer>
       </article>
     </div>
     <EmptyState v-if="!loading && !comments.records.length" title="还没有评论" description="来发表第一条友善评论吧。" />
@@ -138,5 +157,6 @@ onMounted(load)
       <el-input v-model="editing.content" type="textarea" :rows="5" maxlength="500" show-word-limit />
       <template #footer><el-button @click="editing.open = false">取消</el-button><el-button type="primary" :loading="commentLoading" @click="saveEdit">保存修改</el-button></template>
     </el-dialog>
+    <ContentReportDialog v-if="reportingCommentId" :model-value="true" target-type="POST_COMMENT" :target-id="reportingCommentId" @update:model-value="!$event && (reportingCommentId = '')" />
   </section>
 </template>

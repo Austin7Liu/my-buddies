@@ -66,7 +66,7 @@ onMounted(load)
 
 <template>
   <section v-loading="loading" class="profile-edit-page">
-    <div class="section-heading"><div><p class="eyebrow accent">MY PROFILE</p><h1>个人资料</h1><p>这些资料会展示在帖子、圈子和活动中，请勿填写手机号、身份证等敏感信息。</p></div><RouterLink v-if="profile" :to="`/profiles/${profile.accountId}`"><el-button>查看公开主页</el-button></RouterLink></div>
+    <div class="section-heading"><div><p class="eyebrow accent">MY PROFILE</p><h1>个人资料</h1><p>这些资料会展示在帖子、圈子和活动中，请勿填写手机号、身份证等敏感信息。</p></div><div class="profile-actions"><RouterLink to="/me/reports"><el-button>我的举报</el-button></RouterLink><RouterLink v-if="profile" :to="`/profiles/${profile.accountId}`"><el-button>查看公开主页</el-button></RouterLink></div></div>
     <el-form ref="formRef" :model="form" :rules="rules" label-position="top">
       <el-form-item label="昵称" prop="nickname"><el-input v-model="form.nickname" maxlength="30" show-word-limit /></el-form-item>
       <el-form-item label="头像" prop="avatarCode"><div class="avatar-picker"><label v-for="option in avatarOptions" :key="option.value" class="avatar-option" :class="{ selected: form.avatarCode === option.value }"><input v-model="form.avatarCode" type="radio" :value="option.value" /><UserAvatar :avatar-code="option.value" :nickname="option.label" :size="68" /><span>{{ option.label }}</span></label></div></el-form-item>

@@ -3,8 +3,9 @@ import { ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { bookmarkPost, likePost, removePostBookmark, unlikePost } from '../api/post.js'
-import { isAuthenticated } from '../stores/auth.js'
+import { authState, isAuthenticated } from '../stores/auth.js'
 import { postStatusLabel } from '../utils/post.js'
+import ContentReportDialog from './ContentReportDialog.vue'
 
 const props = defineProps({
   post: { type: Object, required: true },
@@ -20,6 +21,8 @@ const liked = ref(Boolean(props.post.likedByMe))
 const bookmarked = ref(Boolean(props.post.bookmarkedByMe))
 const likeCount = ref(Number(props.post.likeCount ?? 0))
 const interactionLoading = ref(false)
+const reportOpen = ref(false)
+const isOwnPost = () => String(authState.account?.id ?? '') === String(props.post.author?.accountId ?? props.post.authorAccountId)
 
 watch(() => props.post, (post) => {
   liked.value = Boolean(post.likedByMe)
@@ -59,6 +62,11 @@ async function toggleBookmark() {
     interactionLoading.value = false
   }
 }
+
+function openReport() {
+  if (!requireLogin()) return
+  reportOpen.value = true
+}
 </script>
 
 <template>
@@ -79,6 +87,7 @@ async function toggleBookmark() {
       <template v-if="interactive && post.status === 'PUBLISHED'">
         <el-button link :type="liked ? 'danger' : ''" :loading="interactionLoading" @click="toggleLike">{{ liked ? '♥' : '♡' }} {{ likeCount }}</el-button>
         <el-button link :type="bookmarked ? 'primary' : ''" :disabled="interactionLoading" @click="toggleBookmark">{{ bookmarked ? '已收藏' : '收藏' }}</el-button>
+        <el-button v-if="!isOwnPost()" link type="danger" @click="openReport">举报</el-button>
       </template>
       <span v-else>♡ {{ likeCount }}</span>
     </div>
@@ -87,5 +96,6 @@ async function toggleBookmark() {
       <el-button v-if="['PENDING_REVIEW', 'PUBLISHED', 'REJECTED'].includes(post.status)" link type="primary" @click="$emit('edit', post)">编辑</el-button>
       <el-button link type="danger" @click="$emit('delete', post)">删除</el-button>
     </footer>
+    <ContentReportDialog v-model="reportOpen" target-type="POST" :target-id="post.id" />
   </article>
 </template>

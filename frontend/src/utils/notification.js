@@ -36,3 +36,15 @@ export function notificationTarget(notification) {
   }
   return null
 }
+
+export function notificationHasTarget(notification) {
+  return notification.referenceType === 'POST_COMMENT' || notificationTarget(notification) != null
+}
+
+export function postCommentNotificationTarget(location) {
+  return {
+    name: 'post-detail',
+    params: { postId: String(location.postId) },
+    query: { page: String(location.page), commentId: String(location.commentId) },
+  }
+}

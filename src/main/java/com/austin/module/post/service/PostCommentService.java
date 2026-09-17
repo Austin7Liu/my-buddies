@@ -53,6 +53,20 @@ public class PostCommentService {
                         .orderByAsc(PostComment::getId));
     }
 
+    @Transactional(readOnly = true)
+    public CommentLocation locate(long commentId, long size) {
+        PostComment comment = requireComment(commentId);
+        postService.getPublic(comment.getPostId());
+        long precedingCount = commentMapper.selectCount(new LambdaQueryWrapper<PostComment>()
+                .eq(PostComment::getPostId, comment.getPostId())
+                .and(wrapper -> wrapper
+                        .lt(PostComment::getCreatedAt, comment.getCreatedAt())
+                        .or(sameTime -> sameTime
+                                .eq(PostComment::getCreatedAt, comment.getCreatedAt())
+                                .lt(PostComment::getId, comment.getId()))));
+        return new CommentLocation(comment.getPostId(), comment.getId(), precedingCount / size + 1);
+    }
+
     @Transactional
     public PostComment create(long accountId, long postId, Long parentCommentId, String content) {
         requireEligible(accountId);
@@ -189,5 +203,13 @@ public class PostCommentService {
         if (affected != 1) {
             throw new ConflictException("评论已发生变化，请刷新后重试");
         }
+    }
+
+    public record CommentLocation(
+            Long postId,
+
+            Long commentId,
+
+            long page) {
     }
 }

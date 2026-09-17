@@ -17,8 +17,11 @@ import com.austin.module.circle.domain.Circle;
 import com.austin.module.circle.service.CircleService;
 import com.austin.module.identity.service.IdentityVerificationService;
 import com.austin.module.post.domain.Post;
+import com.austin.module.post.domain.PostComment;
+import com.austin.module.post.domain.PostCommentStatus;
 import com.austin.module.post.domain.PostStatus;
 import com.austin.module.post.mapper.PostAuditLogMapper;
+import com.austin.module.post.mapper.PostCommentMapper;
 import com.austin.module.post.mapper.PostMapper;
 import com.austin.module.profile.domain.AvatarCode;
 import com.austin.module.profile.service.ProfileService;
@@ -27,6 +30,7 @@ import com.austin.module.search.domain.SearchOutboxEvent;
 import com.austin.module.search.domain.SearchOutboxStatus;
 import com.austin.module.search.mapper.SearchOutboxEventMapper;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import java.time.LocalDateTime;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -61,6 +65,9 @@ class PostControllerTests {
 
     @Autowired
     private PostMapper postMapper;
+
+    @Autowired
+    private PostCommentMapper commentMapper;
 
     @Autowired
     private PostAuditLogMapper auditMapper;
@@ -202,6 +209,37 @@ class PostControllerTests {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value("OFFLINE"));
         assertThat(auditMapper.selectCount(null)).isEqualTo(5);
+    }
+
+    @Test
+    void authenticatedUserCanLocateACommentOnItsActualPage() throws Exception {
+        createPost("{\"content\":\"带分页评论的帖子\"}").andExpect(status().isOk());
+        Post value = findAuthorPost();
+        approve(value.getId());
+        LocalDateTime createdAt = LocalDateTime.of(2026, 9, 17, 9, 0);
+        PostComment target = null;
+        for (int index = 0; index < 21; index++) {
+            target = PostComment.builder()
+                    .postId(value.getId())
+                    .authorAccountId(author.getId())
+                    .content("评论 " + index)
+                    .status(PostCommentStatus.VISIBLE)
+                    .version(0)
+                    .createdAt(createdAt)
+                    .updatedAt(createdAt)
+                    .build();
+            commentMapper.insert(target);
+        }
+
+        mockMvc.perform(get("/api/v1/post-comments/{commentId}/location", target.getId())
+                        .with(user(author.getId().toString()))
+                        .param("size", "20"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.postId").value(value.getId()))
+                .andExpect(jsonPath("$.data.commentId").value(target.getId()))
+                .andExpect(jsonPath("$.data.page").value(2));
+        mockMvc.perform(get("/api/v1/post-comments/{commentId}/location", target.getId()))
+                .andExpect(status().isUnauthorized());
     }
 
     private ResultActions createPost(String body) throws Exception {

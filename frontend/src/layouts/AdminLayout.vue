@@ -7,6 +7,7 @@ const menus = [
   { to: '/admin', label: '概览' },
   { to: '/admin/circles', label: 'Circle 审核' },
   { to: '/admin/posts', label: 'Post 审核' },
+  { to: '/admin/reports', label: '内容举报' },
   { to: '/admin/meetups', label: 'Meetup 管理' },
   { to: '/admin/search', label: '搜索索引' },
 ]

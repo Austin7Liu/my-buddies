@@ -28,6 +28,7 @@ import com.austin.module.risk.service.RiskRestrictionService;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -152,6 +153,25 @@ class PostCommentServiceTests {
         ArgumentCaptor<PostCommentAuditLog> captor = ArgumentCaptor.forClass(PostCommentAuditLog.class);
         verify(auditLogMapper).insert(captor.capture());
         assertThat(captor.getValue().getReason()).isEqualTo("违规内容");
+    }
+
+    @Test
+    void locatesCommentUsingTheExistingListOrder() {
+        LocalDateTime createdAt = LocalDateTime.of(2026, 9, 9, 8, 0);
+        PostComment comment = PostComment.builder()
+                .id(100L)
+                .postId(POST_ID)
+                .createdAt(createdAt)
+                .build();
+        when(commentMapper.selectById(100L)).thenReturn(comment);
+        when(postService.getPublic(POST_ID)).thenReturn(Post.builder().id(POST_ID).build());
+        when(commentMapper.selectCount(any())).thenReturn(20L);
+
+        PostCommentService.CommentLocation result = service.locate(100L, 20L);
+
+        assertThat(result.postId()).isEqualTo(POST_ID);
+        assertThat(result.commentId()).isEqualTo(100L);
+        assertThat(result.page()).isEqualTo(2L);
     }
 
     private void allowCommenting(long accountId) {

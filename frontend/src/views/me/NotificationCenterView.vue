@@ -3,6 +3,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { listNotifications } from '../../api/notification.js'
+import { getPostCommentLocation } from '../../api/post.js'
 import EmptyState from '../../components/EmptyState.vue'
 import PaginationBar from '../../components/PaginationBar.vue'
 import {
@@ -10,7 +11,12 @@ import {
   markNotificationRead,
   notificationState,
 } from '../../stores/notification.js'
-import { notificationTarget, notificationTypeLabel } from '../../utils/notification.js'
+import {
+  notificationHasTarget,
+  notificationTarget,
+  notificationTypeLabel,
+  postCommentNotificationTarget,
+} from '../../utils/notification.js'
 
 const router = useRouter()
 const unreadOnly = ref(false)
@@ -32,7 +38,7 @@ async function load(page = 1) {
 
 async function openNotification(notification) {
   if (readingIds.value.has(notification.id)) return
-  const target = notificationTarget(notification)
+  let target = notificationTarget(notification)
   if (!notification.read) {
     readingIds.value.add(notification.id)
     try {
@@ -42,6 +48,10 @@ async function openNotification(notification) {
     } finally {
       readingIds.value.delete(notification.id)
     }
+  }
+  if (notification.referenceType === 'POST_COMMENT') {
+    const location = (await getPostCommentLocation(notification.referenceId)).data
+    target = postCommentNotificationTarget(location)
   }
   if (target) await router.push(target)
 }
@@ -91,12 +101,12 @@ onMounted(() => load())
           <p>{{ notification.content }}</p>
         </div>
         <el-button
-          v-if="!notification.read || notificationTarget(notification)"
+          v-if="!notification.read || notificationHasTarget(notification)"
           text
           :loading="readingIds.has(notification.id)"
           @click="openNotification(notification)"
         >
-          {{ notificationTarget(notification) ? '查看相关内容' : '标为已读' }}
+          {{ notificationHasTarget(notification) ? '查看相关内容' : '标为已读' }}
         </el-button>
       </article>
       <EmptyState v-if="!loading && !pageData.records.length" title="暂无通知" :description="unreadOnly ? '目前没有未读通知。' : '有新的业务动态时会显示在这里。'" />

@@ -31,6 +31,9 @@ export const removePostBookmark = (postId) => http.delete(`/posts/${postId}/book
 export const listPostComments = (postId, page = 1, size = 20) => http.get(`/posts/${postId}/comments`, {
   params: { page, size },
 })
+export const getPostCommentLocation = (commentId, size = 20) => http.get(
+  `/post-comments/${commentId}/location`, { params: { size } },
+)
 export const createPostComment = (postId, content, parentCommentId = null) => http.post(
   `/posts/${postId}/comments`, { content, parentCommentId },
 )
