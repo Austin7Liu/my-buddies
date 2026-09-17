@@ -17,6 +17,7 @@ const routes = [
       { path: 'meetups', name: 'admin-meetups', component: () => import('../views/admin/MeetupManagementView.vue') },
       { path: 'search', name: 'admin-search', component: () => import('../views/admin/SearchManagementView.vue') },
       { path: 'reports', name: 'admin-reports', component: () => import('../views/admin/ContentReportManagementView.vue') },
+      { path: 'appeals', name: 'admin-appeals', component: () => import('../views/admin/ContentAppealManagementView.vue') },
     ],
   },
   {
@@ -37,6 +38,8 @@ const routes = [
       { path: 'me/profile', name: 'my-profile', component: () => import('../views/me/MyProfileView.vue'), meta: { requiresAuth: true } },
       { path: 'me/notifications', name: 'my-notifications', component: () => import('../views/me/NotificationCenterView.vue'), meta: { requiresAuth: true } },
       { path: 'me/reports', name: 'my-reports', component: () => import('../views/me/MyReportsView.vue'), meta: { requiresAuth: true } },
+      { path: 'me/appeals/create', name: 'appeal-create', component: () => import('../views/me/CreateAppealView.vue'), meta: { requiresAuth: true } },
+      { path: 'me/appeals', name: 'my-appeals', component: () => import('../views/me/MyAppealsView.vue'), meta: { requiresAuth: true } },
       { path: 'me/interests', name: 'my-interests', component: () => import('../views/me/MyInterestsView.vue'), meta: { requiresAuth: true } },
       { path: 'me/feed', name: 'my-feed', component: () => import('../views/me/PostCollectionView.vue'), props: { mode: 'feed' }, meta: { requiresAuth: true } },
       { path: 'me/bookmarks', name: 'my-bookmarks', component: () => import('../views/me/PostCollectionView.vue'), props: { mode: 'bookmarks' }, meta: { requiresAuth: true } },

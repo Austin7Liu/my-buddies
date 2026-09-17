@@ -1,11 +1,14 @@
 <script setup>
 import { onMounted, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { getMyReport, listMyReports } from '../../api/report.js'
 import EmptyState from '../../components/EmptyState.vue'
 import PaginationBar from '../../components/PaginationBar.vue'
 import { reportReasonLabel, reportStatusLabel, reportTargetLabel } from '../../utils/report.js'
 
 const loading = ref(true)
+const route = useRoute()
+const router = useRouter()
 const pageData = ref({ records: [], page: 1, size: 20, total: 0 })
 const detail = ref(null)
 
@@ -16,9 +19,18 @@ async function load(page = 1) {
 
 async function openDetail(reportId) {
   detail.value = (await getMyReport(reportId)).data
+  await router.replace({ query: { reportId: String(reportId) } })
 }
 
-onMounted(load)
+async function closeDetail() {
+  detail.value = null
+  await router.replace({ query: {} })
+}
+
+onMounted(async () => {
+  await load()
+  if (route.query.reportId) await openDetail(route.query.reportId)
+})
 </script>
 
 <template>
@@ -34,7 +46,7 @@ onMounted(load)
       <EmptyState v-if="!loading && !pageData.records.length" title="暂无举报" description="你提交的内容举报会显示在这里。" />
     </div>
     <PaginationBar :page="Number(pageData.page)" :size="Number(pageData.size)" :total="Number(pageData.total)" @change="load" />
-    <el-dialog :model-value="Boolean(detail)" title="举报详情" width="min(620px, 92vw)" @update:model-value="!$event && (detail = null)">
+    <el-dialog :model-value="Boolean(detail)" title="举报详情" width="min(620px, 92vw)" @update:model-value="!$event && closeDetail()">
       <div v-if="detail" class="report-detail"><p><strong>状态：</strong>{{ reportStatusLabel(detail.status) }}</p><p><strong>目标：</strong>{{ reportTargetLabel(detail.targetType) }}</p><p><strong>原因：</strong>{{ reportReasonLabel(detail.reasonType) }}</p><p><strong>说明：</strong>{{ detail.description || '无' }}</p><p><strong>处理结果：</strong>{{ detail.resolutionNote || '平台尚未处理' }}</p><p><strong>提交时间：</strong>{{ detail.createdAt }}</p><p v-if="detail.handledAt"><strong>处理时间：</strong>{{ detail.handledAt }}</p></div>
     </el-dialog>
   </section>

@@ -8,6 +8,7 @@ const menus = [
   { to: '/admin/circles', label: 'Circle 审核' },
   { to: '/admin/posts', label: 'Post 审核' },
   { to: '/admin/reports', label: '内容举报' },
+  { to: '/admin/appeals', label: '内容申诉' },
   { to: '/admin/meetups', label: 'Meetup 管理' },
   { to: '/admin/search', label: '搜索索引' },
 ]

@@ -29,4 +29,16 @@ describe('notification helpers', () => {
     expect(notificationTypeLabel('COMMENT_REPLIED')).toBe('评论回复')
     expect(notificationTypeLabel('UNKNOWN')).toBe('系统通知')
   })
+
+  it('routes content governance notifications to the correct owner view', () => {
+    expect(notificationTarget({ referenceType: 'CONTENT_REPORT', referenceId: '91', notificationType: 'REPORTED_CONTENT_OFFLINED' })).toEqual({
+      name: 'appeal-create', query: { reportId: '91' },
+    })
+    expect(notificationTarget({ referenceType: 'CONTENT_REPORT', referenceId: '92', notificationType: 'REPORT_RESOLVED' })).toEqual({
+      name: 'my-reports', query: { reportId: '92' },
+    })
+    expect(notificationTarget({ referenceType: 'CONTENT_APPEAL', referenceId: '93', notificationType: 'CONTENT_APPEAL_APPROVED' })).toEqual({
+      name: 'my-appeals', query: { appealId: '93' },
+    })
+  })
 })

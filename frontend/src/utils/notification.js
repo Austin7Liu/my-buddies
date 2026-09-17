@@ -34,6 +34,15 @@ export function notificationTarget(notification) {
   if (notification.referenceType === 'POST_LIKE') {
     return { name: 'post-detail', params: { postId: referenceId } }
   }
+  if (notification.referenceType === 'CONTENT_REPORT') {
+    if (['REPORTED_CONTENT_OFFLINED', 'REPORTED_COMMENT_HIDDEN'].includes(notification.notificationType)) {
+      return { name: 'appeal-create', query: { reportId: referenceId } }
+    }
+    return { name: 'my-reports', query: { reportId: referenceId } }
+  }
+  if (notification.referenceType === 'CONTENT_APPEAL') {
+    return { name: 'my-appeals', query: { appealId: referenceId } }
+  }
   return null
 }
 
