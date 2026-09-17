@@ -125,7 +125,7 @@ onMounted(load)
 
     <div class="comment-list">
       <article v-for="comment in comments.records" :key="comment.id" class="comment-card" :class="{ reply: comment.parentCommentId }">
-        <div class="comment-head"><div class="post-author"><span class="avatar">{{ comment.author?.nickname?.slice(0, 1) || '?' }}</span><div><strong>{{ comment.author?.nickname || '已注销用户' }}</strong><small>{{ comment.createdAt }}</small></div></div><span v-if="comment.parentCommentId" class="reply-label">回复评论 #{{ comment.parentCommentId }}</span></div>
+        <div class="comment-head"><div class="post-author"><span class="avatar">{{ comment.author?.nickname?.slice(0, 1) || '?' }}</span><div><RouterLink v-if="comment.author?.accountId" class="profile-link" :to="`/profiles/${comment.author.accountId}`"><strong>{{ comment.author.nickname }}</strong></RouterLink><strong v-else>已注销用户</strong><small>{{ comment.createdAt }}</small></div></div><span v-if="comment.parentCommentId" class="reply-label">回复评论 #{{ comment.parentCommentId }}</span></div>
         <p v-if="comment.status === 'VISIBLE'" class="comment-content">{{ comment.content }}</p>
         <p v-else class="comment-placeholder">{{ commentStatusLabel(comment.status) }}</p>
         <footer v-if="comment.status === 'VISIBLE'"><el-button v-if="!comment.parentCommentId" link @click="replyTo(comment)">回复</el-button><template v-if="isMine(comment)"><el-button link type="primary" @click="startEdit(comment)">编辑</el-button><el-button link type="danger" @click="removeComment(comment)">删除</el-button></template></footer>

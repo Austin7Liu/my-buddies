@@ -215,7 +215,7 @@ onMounted(load)
   <section v-loading="loading" class="meetup-detail-page">
     <el-breadcrumb separator="/"><el-breadcrumb-item :to="{ name: 'meetup-list' }">活动</el-breadcrumb-item><el-breadcrumb-item>{{ meetup?.title || '活动详情' }}</el-breadcrumb-item></el-breadcrumb>
     <div v-if="meetup" class="meetup-detail-hero">
-      <div><div class="meetup-badges"><el-tag>{{ meetupModeLabel(meetup.meetupMode) }}</el-tag><el-tag effect="plain">{{ meetupStatusLabel(meetup.status) }}</el-tag></div><h1>{{ meetup.title }}</h1><p>{{ meetup.description }}</p><small>由 {{ meetup.creator?.nickname || `用户 ${meetup.creatorAccountId}` }} 创建</small></div>
+      <div><div class="meetup-badges"><el-tag>{{ meetupModeLabel(meetup.meetupMode) }}</el-tag><el-tag effect="plain">{{ meetupStatusLabel(meetup.status) }}</el-tag></div><h1>{{ meetup.title }}</h1><p>{{ meetup.description }}</p><small>由 <RouterLink class="profile-link" :to="`/profiles/${meetup.creator?.accountId || meetup.creatorAccountId}`">{{ meetup.creator?.nickname || `用户 ${meetup.creatorAccountId}` }}</RouterLink> 创建</small></div>
       <div class="meetup-actions">
         <el-button v-if="isCreator && meetup.status === 'DRAFT'" type="primary" size="large" :loading="acting" @click="publish">发布活动</el-button>
         <el-button v-if="isCreator && meetup.status === 'OPEN'" type="primary" size="large" :loading="acting" @click="confirmActivity">确认活动</el-button>
@@ -245,7 +245,7 @@ onMounted(load)
     <section v-if="isCreator && meetup?.status !== 'DRAFT'" class="meetup-management-panel">
       <div class="section-heading"><div><p class="eyebrow accent">APPLICATIONS</p><h2>报名管理</h2></div><span>共 {{ applications.total }} 条参与记录</span></div>
       <el-table :data="applications.records" empty-text="暂无用户申请">
-        <el-table-column label="申请人" min-width="150"><template #default="{ row }">{{ row.profile?.nickname || `用户 ${row.accountId}` }}</template></el-table-column>
+        <el-table-column label="申请人" min-width="150"><template #default="{ row }"><RouterLink class="profile-link" :to="`/profiles/${row.accountId}`">{{ row.profile?.nickname || `用户 ${row.accountId}` }}</RouterLink></template></el-table-column>
         <el-table-column prop="applicationMessage" label="申请说明" min-width="200" />
         <el-table-column label="状态" width="110"><template #default="{ row }">{{ participantStatusLabel(row.status) }}</template></el-table-column>
         <el-table-column prop="decisionReason" label="处理原因" min-width="160" />
@@ -267,7 +267,7 @@ onMounted(load)
 
     <section v-if="isCreator && fulfillments.length" class="meetup-management-panel">
       <div class="section-heading"><div><p class="eyebrow accent">FULFILLMENT</p><h2>履约结果</h2></div></div>
-      <el-table :data="fulfillments"><el-table-column label="参与者" min-width="160"><template #default="{ row }">{{ row.profile?.nickname || `用户 ${row.accountId}` }}</template></el-table-column><el-table-column label="结果" width="120"><template #default="{ row }">{{ fulfillmentResultLabel(row.result) }}</template></el-table-column><el-table-column prop="settledAt" label="结算时间" min-width="180" /></el-table>
+      <el-table :data="fulfillments"><el-table-column label="参与者" min-width="160"><template #default="{ row }"><RouterLink class="profile-link" :to="`/profiles/${row.accountId}`">{{ row.profile?.nickname || `用户 ${row.accountId}` }}</RouterLink></template></el-table-column><el-table-column label="结果" width="120"><template #default="{ row }">{{ fulfillmentResultLabel(row.result) }}</template></el-table-column><el-table-column prop="settledAt" label="结算时间" min-width="180" /></el-table>
     </section>
 
     <el-alert v-if="myFulfillment" class="meetup-state-alert" type="success" :closable="false" :title="`我的履约结果：${fulfillmentResultLabel(myFulfillment.result)}`" />

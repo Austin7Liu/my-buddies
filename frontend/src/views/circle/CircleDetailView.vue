@@ -75,11 +75,11 @@ onMounted(() => Promise.all([load(), loadPosts(), loadMeetups()]))
   <section v-loading="loading">
     <el-breadcrumb separator="/"><el-breadcrumb-item :to="{ name: 'home' }">发现</el-breadcrumb-item><el-breadcrumb-item>{{ circle?.name || '圈子' }}</el-breadcrumb-item></el-breadcrumb>
     <div v-if="circle" class="detail-hero">
-      <div><p class="eyebrow accent">{{ circle.city }}{{ circle.district ? ` · ${circle.district}` : '' }}</p><h1>{{ circle.name }}</h1><p>{{ circle.description || '这个圈子还没有填写介绍。' }}</p><small>由 {{ circle.creator?.nickname || `用户 ${circle.creatorAccountId}` }} 创建</small></div>
+      <div><p class="eyebrow accent">{{ circle.city }}{{ circle.district ? ` · ${circle.district}` : '' }}</p><h1>{{ circle.name }}</h1><p>{{ circle.description || '这个圈子还没有填写介绍。' }}</p><small>由 <RouterLink class="profile-link" :to="`/profiles/${circle.creator?.accountId || circle.creatorAccountId}`">{{ circle.creator?.nickname || `用户 ${circle.creatorAccountId}` }}</RouterLink> 创建</small></div>
       <el-button type="primary" size="large" round :loading="acting" @click="toggleMembership">{{ membership?.status === 'ACTIVE' ? '退出圈子' : '加入圈子' }}</el-button>
     </div>
     <div class="section-heading"><div><p class="eyebrow accent">MEMBERS</p><h2>圈子成员</h2></div><span>{{ members.total }} 人</span></div>
-    <div class="member-list"><article v-for="member in members.records" :key="member.account.accountId"><span class="avatar">{{ member.account.nickname.slice(0, 1) }}</span><div><strong>{{ member.account.nickname }}</strong><small>{{ member.role === 'OWNER' ? '创建者' : '成员' }} · {{ member.account.verified ? '已实名' : '未实名' }}</small></div></article></div>
+    <div class="member-list"><article v-for="member in members.records" :key="member.account.accountId"><span class="avatar">{{ member.account.nickname.slice(0, 1) }}</span><div><RouterLink class="profile-link" :to="`/profiles/${member.account.accountId}`"><strong>{{ member.account.nickname }}</strong></RouterLink><small>{{ member.role === 'OWNER' ? '创建者' : '成员' }} · {{ member.account.verified ? '已实名' : '未实名' }}</small></div></article></div>
     <EmptyState v-if="!loading && !members.records.length" title="暂无成员" />
     <PaginationBar :page="Number(members.page)" :size="Number(members.size)" :total="Number(members.total)" @change="load" />
     <div class="section-heading"><div><p class="eyebrow accent">CIRCLE MEETUPS</p><h2>圈子活动</h2></div><el-button type="primary" round @click="createMeetup">在圈子创建活动</el-button></div>

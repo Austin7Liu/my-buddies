@@ -66,7 +66,7 @@ async function toggleBookmark() {
     <header>
       <div class="post-author">
         <span class="avatar">{{ post.author?.nickname?.slice(0, 1) || '?' }}</span>
-        <div><strong>{{ post.author?.nickname || `用户 ${post.authorAccountId}` }}</strong><small>{{ post.createdAt }}</small></div>
+        <div><RouterLink class="profile-link" :to="`/profiles/${post.author?.accountId || post.authorAccountId}`"><strong>{{ post.author?.nickname || `用户 ${post.authorAccountId}` }}</strong></RouterLink><small>{{ post.createdAt }}</small></div>
       </div>
       <el-tag v-if="showStatus" effect="plain">{{ postStatusLabel(post.status) }}</el-tag>
     </header>
