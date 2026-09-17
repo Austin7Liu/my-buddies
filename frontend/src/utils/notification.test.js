@@ -40,5 +40,11 @@ describe('notification helpers', () => {
     expect(notificationTarget({ referenceType: 'CONTENT_APPEAL', referenceId: '93', notificationType: 'CONTENT_APPEAL_APPROVED' })).toEqual({
       name: 'my-appeals', query: { appealId: '93' },
     })
+    expect(notificationTarget({ referenceType: 'CONTENT_VIOLATION', referenceId: '94', notificationType: 'CONTENT_VIOLATION_CONFIRMED' })).toEqual({
+      name: 'account-safety', query: { tab: 'violations', violationId: '94' },
+    })
+    expect(notificationTarget({ referenceType: 'RISK_RESTRICTION', referenceId: '95', notificationType: 'RISK_RESTRICTION_CREATED' })).toEqual({
+      name: 'account-safety', query: { tab: 'restrictions', restrictionId: '95' },
+    })
   })
 })

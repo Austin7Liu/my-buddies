@@ -43,6 +43,12 @@ export function notificationTarget(notification) {
   if (notification.referenceType === 'CONTENT_APPEAL') {
     return { name: 'my-appeals', query: { appealId: referenceId } }
   }
+  if (notification.referenceType === 'CONTENT_VIOLATION') {
+    return { name: 'account-safety', query: { tab: 'violations', violationId: referenceId } }
+  }
+  if (notification.referenceType === 'RISK_RESTRICTION') {
+    return { name: 'account-safety', query: { tab: 'restrictions', restrictionId: referenceId } }
+  }
   return null
 }
 

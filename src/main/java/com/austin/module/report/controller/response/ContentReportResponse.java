@@ -18,6 +18,7 @@ public record ContentReportResponse(
         ReportStatus status,
         Long handledBy,
         LocalDateTime handledAt,
+        LocalDateTime appealDeadlineAt,
         String resolutionNote,
         LocalDateTime createdAt) {
 
@@ -35,6 +36,6 @@ public record ContentReportResponse(
                 report.getReasonType(), report.getDescription(),
                 includeSnapshot ? report.getContentSnapshot() : null,
                 report.getStatus(), report.getHandledBy(), report.getHandledAt(),
-                report.getResolutionNote(), report.getCreatedAt());
+                report.getAppealDeadlineAt(), report.getResolutionNote(), report.getCreatedAt());
     }
 }
