@@ -4,14 +4,15 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   acceptMeetupApplication, applyMeetup, cancelMeetup, checkInMeetup, completeMeetup, confirmMeetup,
-  getMeetup, getMyMeetupCheckIn, getMyMeetupFulfillment, getMyMeetupParticipation,
+  createMeetupReview, getMeetup, getMyMeetupCheckIn, getMyMeetupFulfillment, getMyMeetupParticipation,
   listMeetupApplications, listMeetupCheckIns, listMeetupFulfillments, publishMeetup,
-  rejectMeetupApplication, withdrawMeetup,
+  listMeetupReviewCandidates, listMyMeetupReviews, rejectMeetupApplication, updateMeetupReview,
+  withdrawMeetup,
 } from '../../api/meetup.js'
 import ModerationReasonDialog from '../../components/admin/ModerationReasonDialog.vue'
 import PaginationBar from '../../components/PaginationBar.vue'
 import { authState, isAuthenticated } from '../../stores/auth.js'
-import { fulfillmentResultLabel, meetupModeLabel, meetupStatusLabel, participantStatusLabel } from '../../utils/meetup.js'
+import { fulfillmentResultLabel, meetupModeLabel, meetupStatusLabel, participantStatusLabel, validateMeetupReview } from '../../utils/meetup.js'
 import { createLocationCheckInAction, geolocationErrorMessage, loadExistingCheckIn } from '../../utils/meetupGeolocation.js'
 
 const route = useRoute()
@@ -31,6 +32,11 @@ const applicationMessage = ref('')
 const reasonAction = ref(null)
 const checkIn = ref(null)
 const checkInLoading = ref(false)
+const reviewCandidates = ref([])
+const myReviews = ref([])
+const reviewTarget = ref(null)
+const reviewForm = ref({ rating: 5, comment: '' })
+const reviewSubmitting = ref(false)
 
 const isCreator = computed(() => String(meetup.value?.creatorAccountId ?? '') === String(authState.account?.id ?? ''))
 const isAccepted = computed(() => participation.value?.status === 'ACCEPTED')
@@ -44,6 +50,9 @@ const canAccessCheckIn = computed(() => isAuthenticated() && isAccepted.value
   && meetup.value?.meetupMode === 'OFFLINE'
   && meetup.value?.locationLatitude != null && meetup.value?.locationLongitude != null)
 const canCheckIn = computed(() => canAccessCheckIn.value && meetup.value?.status === 'CONFIRMED')
+const canReview = computed(() => meetup.value?.meetupMode === 'OFFLINE'
+  && meetup.value?.status === 'COMPLETED'
+  && myFulfillment.value?.result === 'ATTENDED')
 const locationCheckInAction = createLocationCheckInAction(globalThis.navigator?.geolocation, checkInMeetup)
 
 async function optionalData(request) {
@@ -59,12 +68,26 @@ async function loadApplications(page = 1) {
   if (isCreator.value) applications.value = (await listMeetupApplications(meetupId, page)).data
 }
 
+async function loadReviewState() {
+  reviewCandidates.value = []
+  myReviews.value = []
+  if (!canReview.value) return
+  const [candidates, reviews] = await Promise.all([
+    listMeetupReviewCandidates(meetupId),
+    listMyMeetupReviews(meetupId),
+  ])
+  reviewCandidates.value = candidates.data
+  myReviews.value = reviews.data.records
+}
+
 async function loadRelatedState() {
   participation.value = null
   checkIn.value = null
   myFulfillment.value = null
   checkIns.value = []
   fulfillments.value = []
+  reviewCandidates.value = []
+  myReviews.value = []
   if (!isAuthenticated()) return
   participation.value = await optionalData(() => getMyMeetupParticipation(meetupId))
   if (isCreator.value) {
@@ -76,6 +99,8 @@ async function loadRelatedState() {
       checkIns.value = (await listMeetupCheckIns(meetupId)).data.records
       if (meetup.value.status === 'COMPLETED') {
         fulfillments.value = (await listMeetupFulfillments(meetupId)).data.records
+        myFulfillment.value = fulfillments.value.find((item) => String(item.accountId) === String(authState.account?.id)) ?? null
+        await loadReviewState()
       }
     }
     return
@@ -83,6 +108,7 @@ async function loadRelatedState() {
   if (canAccessCheckIn.value) checkIn.value = await loadExistingCheckIn(meetupId, getMyMeetupCheckIn)
   if (isAccepted.value && meetup.value.status === 'COMPLETED' && meetup.value.meetupMode === 'OFFLINE') {
     myFulfillment.value = await optionalData(() => getMyMeetupFulfillment(meetupId))
+    await loadReviewState()
   }
 }
 
@@ -208,6 +234,46 @@ function reasonDialogTitle() {
   return '退出活动'
 }
 
+function reviewFor(candidate) {
+  return myReviews.value.find((review) => String(review.reviewee?.accountId) === String(candidate.accountId)) ?? null
+}
+
+function openReview(candidate) {
+  const existing = reviewFor(candidate)
+  if (existing?.status === 'HIDDEN') return
+  reviewTarget.value = { candidate, existing }
+  reviewForm.value = {
+    rating: existing?.rating ?? 5,
+    comment: existing?.comment ?? '',
+  }
+}
+
+async function submitReview() {
+  if (reviewSubmitting.value || !reviewTarget.value) return
+  const error = validateMeetupReview(reviewForm.value.rating, reviewForm.value.comment)
+  if (error) return ElMessage.warning(error)
+  reviewSubmitting.value = true
+  const payload = {
+    rating: reviewForm.value.rating,
+    comment: reviewForm.value.comment.trim() || null,
+  }
+  try {
+    if (reviewTarget.value.existing) {
+      await updateMeetupReview(meetupId, reviewTarget.value.existing.id, payload)
+    } else {
+      await createMeetupReview(meetupId, {
+        revieweeAccountId: reviewTarget.value.candidate.accountId,
+        ...payload,
+      })
+    }
+    ElMessage.success(reviewTarget.value.existing ? '评价已更新' : '评价已提交')
+    reviewTarget.value = null
+    await loadReviewState()
+  } finally {
+    reviewSubmitting.value = false
+  }
+}
+
 onMounted(load)
 </script>
 
@@ -271,12 +337,28 @@ onMounted(load)
     </section>
 
     <el-alert v-if="myFulfillment" class="meetup-state-alert" type="success" :closable="false" :title="`我的履约结果：${fulfillmentResultLabel(myFulfillment.result)}`" />
+
+    <section v-if="canReview" class="meetup-management-panel">
+      <div class="section-heading"><div><p class="eyebrow accent">PEER REVIEWS</p><h2>评价同行伙伴</h2></div><span>评价期为活动完成后 7 天</span></div>
+      <el-table :data="reviewCandidates" empty-text="暂无其他实际出席者可评价">
+        <el-table-column label="伙伴" min-width="180"><template #default="{ row }"><RouterLink class="profile-link" :to="`/profiles/${row.accountId}`">{{ row.nickname }}</RouterLink></template></el-table-column>
+        <el-table-column label="我的评价" min-width="240"><template #default="{ row }"><template v-if="reviewFor(row)"><span>{{ '★'.repeat(reviewFor(row).rating) }}{{ '☆'.repeat(5 - reviewFor(row).rating) }}</span><small v-if="reviewFor(row).status === 'HIDDEN'" class="review-hidden-label">评价已被管理员隐藏</small></template><span v-else class="muted-text">尚未评价</span></template></el-table-column>
+        <el-table-column label="操作" width="120"><template #default="{ row }"><el-button v-if="reviewFor(row)?.status !== 'HIDDEN'" link type="primary" @click="openReview(row)">{{ reviewFor(row) ? '编辑评价' : '去评价' }}</el-button><span v-else class="muted-text">不可编辑</span></template></el-table-column>
+      </el-table>
+    </section>
     <el-alert v-if="meetup?.closedReason" type="warning" :closable="false" :title="meetup.closedReason" />
 
     <el-dialog v-model="applyOpen" title="申请加入活动" width="min(560px, 92vw)">
       <p>创建者会根据参与要求审核申请。请勿填写手机号、身份证等敏感信息。</p>
       <el-input v-model="applicationMessage" type="textarea" :rows="5" maxlength="500" show-word-limit placeholder="简单介绍你的参与经验或时间安排（选填）" />
       <template #footer><el-button @click="applyOpen = false">取消</el-button><el-button type="primary" :loading="acting" @click="submitApplication">提交申请</el-button></template>
+    </el-dialog>
+
+    <el-dialog :model-value="Boolean(reviewTarget)" :title="reviewTarget?.existing ? '编辑活动评价' : '评价活动伙伴'" width="min(560px, 92vw)" @close="reviewTarget = null">
+      <p>评价对象：<strong>{{ reviewTarget?.candidate.nickname }}</strong></p>
+      <el-rate v-model="reviewForm.rating" show-score score-template="{value} 星" />
+      <el-input v-model="reviewForm.comment" class="review-comment-input" type="textarea" :rows="5" maxlength="500" show-word-limit placeholder="分享真实、友善且与活动相关的评价（选填）" />
+      <template #footer><el-button @click="reviewTarget = null">取消</el-button><el-button type="primary" :loading="reviewSubmitting" :disabled="reviewSubmitting" @click="submitReview">{{ reviewTarget?.existing ? '保存修改' : '提交评价' }}</el-button></template>
     </el-dialog>
 
     <ModerationReasonDialog :model-value="Boolean(reasonAction)" :title="reasonDialogTitle()" :confirm-text="reasonAction?.action === 'reject' ? '确认驳回' : '确认提交'" :loading="acting" @update:model-value="!$event && (reasonAction = null)" @confirm="submitReason" />

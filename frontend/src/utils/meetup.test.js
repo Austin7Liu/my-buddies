@@ -6,6 +6,7 @@ import {
   meetupStatusLabel,
   meetupTargetLocation,
   participantStatusLabel,
+  validateMeetupReview,
   validateMeetupTimes,
 } from './meetup.js'
 
@@ -33,5 +34,11 @@ describe('meetup helpers', () => {
       locationLongitude: 120.2123,
       checkInRadiusMeters: 300,
     })
+  })
+
+  it('validates meetup review input', () => {
+    expect(validateMeetupReview(0, '')).toBe('请选择 1 到 5 星评分')
+    expect(validateMeetupReview(5, '好'.repeat(501))).toBe('评价内容不能超过 500 个字符')
+    expect(validateMeetupReview(5, '准时友善')).toBe('')
   })
 })

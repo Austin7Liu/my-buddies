@@ -58,3 +58,9 @@ export function validateMeetupTimes(startTime, endTime, applicationDeadline) {
   if (end <= start) return '活动结束时间必须晚于开始时间'
   return ''
 }
+
+export function validateMeetupReview(rating, comment) {
+  if (!Number.isInteger(rating) || rating < 1 || rating > 5) return '请选择 1 到 5 星评分'
+  if ((comment ?? '').trim().length > 500) return '评价内容不能超过 500 个字符'
+  return ''
+}

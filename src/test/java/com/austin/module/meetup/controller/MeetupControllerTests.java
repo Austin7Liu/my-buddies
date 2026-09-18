@@ -509,6 +509,16 @@ class MeetupControllerTests {
         assertThat(applicantFulfillment.getResult()).isEqualTo(FulfillmentResult.ATTENDED);
         assertThat(applicantFulfillment.getSource()).isEqualTo(FulfillmentSource.CHECK_IN);
 
+        mockMvc.perform(get("/api/v1/meetups/{meetupId}/review-candidates", meetup.getId())
+                        .with(user(applicant.getId().toString())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.length()").value(1))
+                .andExpect(jsonPath("$.data[0].accountId").value(creator.getId()));
+        mockMvc.perform(get("/api/v1/meetups/{meetupId}/reviews/mine", meetup.getId())
+                        .with(user(applicant.getId().toString())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total").value(0));
+
         mockMvc.perform(post("/api/v1/meetups/{meetupId}/reviews", meetup.getId())
                         .with(user(applicant.getId().toString()))
                         .contentType(MediaType.APPLICATION_JSON)
@@ -554,6 +564,12 @@ class MeetupControllerTests {
         mockMvc.perform(get("/api/v1/profiles/{accountId}/reviews", creator.getId()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.total").value(0));
+        mockMvc.perform(put("/api/v1/meetups/{meetupId}/reviews/{reviewId}", meetup.getId(), review.getId())
+                        .with(user(applicant.getId().toString()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"rating\":3}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.message").value("被隐藏的评价不能编辑"));
         mockMvc.perform(get("/api/v1/profiles/{accountId}/reputation", creator.getId()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.receivedReviewCount").value(0))

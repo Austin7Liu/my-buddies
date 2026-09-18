@@ -24,6 +24,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import java.time.Clock;
 import java.time.LocalDateTime;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
@@ -76,6 +77,9 @@ public class MeetupReviewService {
         if (!review.getReviewerAccountId().equals(reviewerId)) {
             throw new ForbiddenException("只能修改自己的评价");
         }
+        if (review.getStatus() != MeetupReviewStatus.VISIBLE) {
+            throw new ConflictException("被隐藏的评价不能编辑");
+        }
         ensureWithinReviewWindow(requireMeetup(meetupId));
         review.setRating(rating);
         review.setComment(normalize(comment));
@@ -102,6 +106,29 @@ public class MeetupReviewService {
                 .eq(MeetupReview::getStatus, MeetupReviewStatus.VISIBLE)
                 .orderByDesc(MeetupReview::getCreatedAt)
                 .orderByDesc(MeetupReview::getId));
+    }
+
+    @Transactional(readOnly = true)
+    public List<Long> listReviewCandidateAccountIds(long reviewerId, long meetupId) {
+        Meetup meetup = requireMeetup(meetupId);
+        if (meetup.getMeetupMode() != MeetupMode.OFFLINE || meetup.getStatus() != MeetupStatus.COMPLETED) {
+            throw new ConflictException("只有已完成的线下活动可以评价");
+        }
+        MeetupFulfillment reviewerFulfillment = fulfillmentMapper.selectOne(
+                new LambdaQueryWrapper<MeetupFulfillment>()
+                        .eq(MeetupFulfillment::getMeetupId, meetupId)
+                        .eq(MeetupFulfillment::getAccountId, reviewerId));
+        if (reviewerFulfillment == null || reviewerFulfillment.getResult() != FulfillmentResult.ATTENDED) {
+            throw new ConflictException("只有实际出席的参与者可以评价");
+        }
+        return fulfillmentMapper.selectList(new LambdaQueryWrapper<MeetupFulfillment>()
+                        .eq(MeetupFulfillment::getMeetupId, meetupId)
+                        .eq(MeetupFulfillment::getResult, FulfillmentResult.ATTENDED)
+                        .ne(MeetupFulfillment::getAccountId, reviewerId)
+                        .orderByAsc(MeetupFulfillment::getAccountId))
+                .stream()
+                .map(MeetupFulfillment::getAccountId)
+                .toList();
     }
 
     @Transactional(readOnly = true)

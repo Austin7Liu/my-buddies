@@ -26,3 +26,7 @@ export const getMyMeetupFulfillment = (meetupId) => http.get(`/meetups/${meetupI
   silentStatuses: [404],
 })
 export const listMeetupFulfillments = (meetupId, page = 1, size = 100) => http.get(`/meetups/${meetupId}/fulfillments`, { params: { page, size } })
+export const listMeetupReviewCandidates = (meetupId) => http.get(`/meetups/${meetupId}/review-candidates`)
+export const listMyMeetupReviews = (meetupId, page = 1, size = 100) => http.get(`/meetups/${meetupId}/reviews/mine`, { params: { page, size } })
+export const createMeetupReview = (meetupId, payload) => http.post(`/meetups/${meetupId}/reviews`, payload)
+export const updateMeetupReview = (meetupId, reviewId, payload) => http.put(`/meetups/${meetupId}/reviews/${reviewId}`, payload)

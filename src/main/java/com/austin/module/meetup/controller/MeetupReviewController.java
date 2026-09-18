@@ -15,6 +15,7 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Positive;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
@@ -70,6 +71,19 @@ public class MeetupReviewController {
             @RequestParam(defaultValue = "20") @Min(1) @Max(100) long size) {
         return ApiResponse.success(responsePage(
                 reviewService.listMine(accountId(authentication), meetupId, page, size)));
+    }
+
+    @GetMapping("/meetups/{meetupId}/review-candidates")
+    @PreAuthorize("isAuthenticated()")
+    public ApiResponse<List<ProfileSummaryResponse>> listCandidates(
+            Authentication authentication,
+            @PathVariable @Positive long meetupId) {
+        List<Long> accountIds = reviewService.listReviewCandidateAccountIds(
+                accountId(authentication), meetupId);
+        Map<Long, ProfileService.ProfileSummary> summaries = profileService.getSummaries(accountIds);
+        return ApiResponse.success(accountIds.stream()
+                .map(candidateId -> ProfileSummaryResponse.from(summaries.get(candidateId)))
+                .toList());
     }
 
     @GetMapping("/profiles/{accountId}/reviews")
