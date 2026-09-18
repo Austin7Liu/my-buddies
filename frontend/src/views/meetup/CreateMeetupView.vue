@@ -1,16 +1,17 @@
 <script setup>
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { listCategories, listTopics } from '../../api/catalog.js'
 import { getCircle } from '../../api/circle.js'
-import { createMeetup } from '../../api/meetup.js'
+import { createMeetup, getMeetup, updateMeetup } from '../../api/meetup.js'
 import { sameId } from '../../utils/id.js'
 import { meetupAssociationPayload, meetupTargetLocation, validateMeetupTimes } from '../../utils/meetup.js'
 import { geolocationErrorMessage, getCurrentLocation } from '../../utils/meetupGeolocation.js'
 
 const route = useRoute()
 const router = useRouter()
+const editing = computed(() => Boolean(route.params.meetupId))
 const formRef = ref()
 const categories = ref([])
 const topics = ref([])
@@ -54,6 +55,38 @@ async function resolveTopic(topicId) {
 }
 
 async function load() {
+  if (editing.value) {
+    const meetup = (await getMeetup(route.params.meetupId)).data
+    if (meetup.status !== 'DRAFT') {
+      ElMessage.warning('只有草稿活动可以编辑')
+      return router.replace({ name: 'meetup-detail', params: { meetupId: meetup.id } })
+    }
+    Object.assign(form, {
+      topicId: meetup.topicId ? String(meetup.topicId) : null,
+      circleId: meetup.circleId ? String(meetup.circleId) : null,
+      meetupMode: meetup.meetupMode,
+      title: meetup.title,
+      description: meetup.description,
+      startTime: meetup.startTime,
+      endTime: meetup.endTime,
+      applicationDeadline: meetup.applicationDeadline,
+      city: meetup.city ?? '',
+      district: meetup.district ?? '',
+      locationName: meetup.locationName ?? '',
+      address: meetup.address ?? '',
+      locationLatitude: meetup.locationLatitude ?? null,
+      locationLongitude: meetup.locationLongitude ?? null,
+      checkInRadiusMeters: meetup.checkInRadiusMeters ?? null,
+      onlinePlatform: meetup.onlinePlatform ?? '',
+      serverRegion: meetup.serverRegion ?? '',
+      accessInstructions: meetup.accessInstructions ?? '',
+      capacity: meetup.capacity,
+      minimumAge: meetup.minimumAge,
+      maximumAge: meetup.maximumAge,
+      genderRequirement: meetup.genderRequirement,
+      skillRequirement: meetup.skillRequirement ?? '',
+    })
+  }
   categories.value = (await listCategories()).data
   if (form.circleId) {
     circle.value = (await getCircle(form.circleId)).data
@@ -129,8 +162,10 @@ async function submit() {
   if (form.meetupMode === 'ONLINE' && !form.onlinePlatform.trim()) return ElMessage.warning('请填写线上平台')
   submitting.value = true
   try {
-    const response = await createMeetup(payload())
-    ElMessage.success('活动草稿已创建，请确认内容后发布')
+    const response = editing.value
+      ? await updateMeetup(route.params.meetupId, payload())
+      : await createMeetup(payload())
+    ElMessage.success(editing.value ? '活动草稿已保存' : '活动草稿已创建，请确认内容后发布')
     router.replace({ name: 'meetup-detail', params: { meetupId: response.data.id } })
   } catch (error) {
     submitError.value = error.response?.data?.error?.message ?? '创建失败，请稍后重试'
@@ -142,7 +177,7 @@ onMounted(load)
 
 <template>
   <section class="form-page meetup-form-page">
-    <p class="eyebrow accent">CREATE A MEETUP</p><h1>创建活动</h1><p>先保存为草稿，检查无误后再发布并接受报名。活动容量包含创建者。</p>
+    <p class="eyebrow accent">{{ editing ? 'EDIT MEETUP' : 'CREATE A MEETUP' }}</p><h1>{{ editing ? '编辑活动草稿' : '创建活动' }}</h1><p>先保存为草稿，检查无误后再发布并接受报名。活动容量包含创建者。</p>
     <el-form ref="formRef" :model="form" :rules="rules" label-position="top" scroll-to-error>
       <h2>1. 关联范围</h2>
       <el-alert v-if="circle" type="info" :closable="false" :title="`活动将发布到 Circle：${circle.name}，Topic 由后端自动确认。`" />
@@ -165,7 +200,7 @@ onMounted(load)
       <el-form-item label="性别要求"><el-select v-model="form.genderRequirement"><el-option label="不限" value="ANY" /><el-option label="与创建者同性别" value="SAME_GENDER" /></el-select></el-form-item>
       <el-form-item label="技能要求"><el-input v-model="form.skillRequirement" maxlength="255" show-word-limit /></el-form-item>
       <div v-if="submitError" class="form-guidance"><span>{{ submitError }}</span><RouterLink v-if="submitError.includes('实名')" to="/me/identity">去完成实名认证</RouterLink></div>
-      <el-button type="primary" size="large" :loading="submitting" @click="submit">保存草稿</el-button>
+      <el-button type="primary" size="large" :loading="submitting" @click="submit">{{ editing ? '保存修改' : '保存草稿' }}</el-button>
     </el-form>
   </section>
 </template>

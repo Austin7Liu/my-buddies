@@ -147,6 +147,40 @@ class MeetupControllerTests {
     }
 
     @Test
+    void myMeetupsCanBeFilteredByParticipantRoleAndMeetupStatus() throws Exception {
+        createMeetup(topic.getId(), null, 4).andExpect(status().isOk());
+        Meetup meetup = findMeetup();
+
+        mockMvc.perform(get("/api/v1/meetups/mine")
+                        .with(user(creator.getId().toString()))
+                        .param("role", "CREATOR")
+                        .param("status", "DRAFT"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total").value(1))
+                .andExpect(jsonPath("$.data.records[0].id").value(meetup.getId()));
+
+        publish(meetup.getId());
+        mockMvc.perform(post("/api/v1/meetups/{meetupId}/applications", meetup.getId())
+                        .with(user(applicant.getId().toString()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"message\":\"想参加活动\"}"))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/v1/meetups/mine")
+                        .with(user(applicant.getId().toString()))
+                        .param("role", "MEMBER")
+                        .param("status", "OPEN"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total").value(1))
+                .andExpect(jsonPath("$.data.records[0].id").value(meetup.getId()));
+        mockMvc.perform(get("/api/v1/meetups/mine")
+                        .with(user(applicant.getId().toString()))
+                        .param("role", "CREATOR"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total").value(0));
+    }
+
+    @Test
     void reputationWithoutHistoryReturnsZeroCountsAndNoRates() throws Exception {
         mockMvc.perform(get("/api/v1/profiles/{accountId}/reputation", moderator.getId()))
                 .andExpect(status().isOk())

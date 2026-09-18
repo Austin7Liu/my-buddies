@@ -4,13 +4,14 @@ import com.austin.module.meetup.domain.Meetup;
 import com.austin.module.meetup.domain.MeetupParticipant;
 import com.austin.module.meetup.domain.MeetupOnlineDetail;
 import com.austin.module.meetup.domain.MeetupStatus;
+import com.austin.module.meetup.domain.ParticipantRole;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 
 public interface MeetupService {
 
     IPage<Meetup> listPublic(Long topicId, Long circleId, long page, long size);
 
-    IPage<Meetup> listMine(long accountId, long page, long size);
+    IPage<Meetup> listMine(long accountId, ParticipantRole role, MeetupStatus status, long page, long size);
 
     IPage<Meetup> listForAdmin(MeetupStatus status, long page, long size);
 

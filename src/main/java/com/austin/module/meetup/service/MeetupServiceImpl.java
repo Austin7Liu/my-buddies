@@ -94,12 +94,28 @@ public class MeetupServiceImpl implements MeetupService {
 
     @Override
     @Transactional(readOnly = true)
-    public IPage<Meetup> listMine(long accountId, long page, long size) {
-        return meetupMapper.selectPage(new Page<>(page, size), new LambdaQueryWrapper<Meetup>()
-                .apply("EXISTS (SELECT 1 FROM meetup_participant mp WHERE mp.meetup_id = meetup.id "
-                        + "AND mp.account_id = {0})", accountId)
+    public IPage<Meetup> listMine(
+            long accountId,
+            ParticipantRole role,
+            MeetupStatus status,
+            long page,
+            long size) {
+        LambdaQueryWrapper<Meetup> query = new LambdaQueryWrapper<Meetup>()
+                .apply(role == null,
+                        "EXISTS (SELECT 1 FROM meetup_participant mp WHERE mp.meetup_id = meetup.id "
+                                + "AND mp.account_id = {0})",
+                        accountId)
+                .apply(role != null,
+                        "EXISTS (SELECT 1 FROM meetup_participant mp WHERE mp.meetup_id = meetup.id "
+                                + "AND mp.account_id = {0} AND mp.role = {1})",
+                        accountId,
+                        role)
                 .orderByDesc(Meetup::getStartTime)
-                .orderByDesc(Meetup::getId));
+                .orderByDesc(Meetup::getId);
+        if (status != null) {
+            query.eq(Meetup::getStatus, status);
+        }
+        return meetupMapper.selectPage(new Page<>(page, size), query);
     }
 
     @Override

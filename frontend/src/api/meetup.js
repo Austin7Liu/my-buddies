@@ -1,10 +1,14 @@
 import http from './http.js'
 
 export const listMeetups = (page = 1, size = 20) => http.get('/meetups', { params: { page, size } })
+export const listMyMeetups = (role, status, page = 1, size = 20) => http.get('/meetups/mine', {
+  params: { role: role || undefined, status: status || undefined, page, size },
+})
 export const listTopicMeetups = (topicId, page = 1, size = 20) => http.get(`/topics/${topicId}/meetups`, { params: { page, size } })
 export const listCircleMeetups = (circleId, page = 1, size = 20) => http.get(`/circles/${circleId}/meetups`, { params: { page, size } })
 export const getMeetup = (meetupId) => http.get(`/meetups/${meetupId}`)
 export const createMeetup = (payload) => http.post('/meetups', payload)
+export const updateMeetup = (meetupId, payload) => http.put(`/meetups/${meetupId}`, payload)
 export const publishMeetup = (meetupId) => http.post(`/meetups/${meetupId}/publish`)
 export const confirmMeetup = (meetupId) => http.post(`/meetups/${meetupId}/confirm`)
 export const completeMeetup = (meetupId) => http.post(`/meetups/${meetupId}/complete`)

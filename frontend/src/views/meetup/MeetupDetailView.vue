@@ -283,6 +283,7 @@ onMounted(load)
     <div v-if="meetup" class="meetup-detail-hero">
       <div><div class="meetup-badges"><el-tag>{{ meetupModeLabel(meetup.meetupMode) }}</el-tag><el-tag effect="plain">{{ meetupStatusLabel(meetup.status) }}</el-tag></div><h1>{{ meetup.title }}</h1><p>{{ meetup.description }}</p><small>由 <RouterLink class="profile-link" :to="`/profiles/${meetup.creator?.accountId || meetup.creatorAccountId}`">{{ meetup.creator?.nickname || `用户 ${meetup.creatorAccountId}` }}</RouterLink> 创建</small></div>
       <div class="meetup-actions">
+        <RouterLink v-if="isCreator && meetup.status === 'DRAFT'" :to="`/meetups/${meetup.id}/edit`"><el-button size="large">编辑草稿</el-button></RouterLink>
         <el-button v-if="isCreator && meetup.status === 'DRAFT'" type="primary" size="large" :loading="acting" @click="publish">发布活动</el-button>
         <el-button v-if="isCreator && meetup.status === 'OPEN'" type="primary" size="large" :loading="acting" @click="confirmActivity">确认活动</el-button>
         <el-button v-if="isCreator && meetup.status === 'CONFIRMED'" type="primary" size="large" :loading="acting" @click="completeActivity">完成活动</el-button>

@@ -14,6 +14,8 @@ import com.austin.module.meetup.controller.response.MeetupResponse;
 import com.austin.module.meetup.domain.Meetup;
 import com.austin.module.meetup.domain.MeetupFulfillment;
 import com.austin.module.meetup.domain.MeetupParticipant;
+import com.austin.module.meetup.domain.MeetupStatus;
+import com.austin.module.meetup.domain.ParticipantRole;
 import com.austin.module.meetup.service.MeetupCommand;
 import com.austin.module.meetup.service.MeetupCheckInService;
 import com.austin.module.meetup.service.MeetupFulfillmentService;
@@ -90,10 +92,13 @@ public class MeetupController {
     @PreAuthorize("isAuthenticated()")
     public ApiResponse<PageResponse<MeetupResponse>> listMine(
             Authentication authentication,
+            @RequestParam(required = false) ParticipantRole role,
+            @RequestParam(required = false) MeetupStatus status,
             @RequestParam(defaultValue = "1") @Min(1) long page,
             @RequestParam(defaultValue = "20") @Min(1) @Max(100) long size) {
         long viewerId = accountId(authentication);
-        return ApiResponse.success(responsePage(meetupService.listMine(viewerId, page, size), viewerId));
+        return ApiResponse.success(responsePage(
+                meetupService.listMine(viewerId, role, status, page, size), viewerId));
     }
 
     @PostMapping("/meetups")
