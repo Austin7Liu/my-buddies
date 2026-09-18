@@ -49,6 +49,14 @@ public class CircleController {
         return ApiResponse.success(response(circleService.getPublic(circleId)));
     }
 
+    @GetMapping("/circles/{circleId}/management")
+    @PreAuthorize("isAuthenticated()")
+    public ApiResponse<CircleResponse> getOwned(
+            Authentication auth,
+            @PathVariable @Positive long circleId) {
+        return ApiResponse.success(response(circleService.getOwned(accountId(auth), circleId)));
+    }
+
     @GetMapping("/circles/mine")
     @PreAuthorize("isAuthenticated()")
     public ApiResponse<PageResponse<CircleResponse>> listMine(Authentication auth,

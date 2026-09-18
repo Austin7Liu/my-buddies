@@ -34,6 +34,7 @@ const routes = [
       { path: 'search', name: 'search', component: () => import('../views/search/SearchView.vue') },
       { path: 'topics/:topicId', name: 'topic-detail', component: () => import('../views/topic/TopicDetailView.vue') },
       { path: 'circles/create', name: 'circle-create', component: () => import('../views/circle/CreateCircleView.vue'), meta: { requiresAuth: true } },
+      { path: 'circles/:circleId/edit', name: 'circle-edit', component: () => import('../views/circle/CreateCircleView.vue'), meta: { requiresAuth: true } },
       { path: 'circles/:circleId', name: 'circle-detail', component: () => import('../views/circle/CircleDetailView.vue') },
       { path: 'posts/create', name: 'post-create', component: () => import('../views/post/CreatePostView.vue'), meta: { requiresAuth: true } },
       { path: 'posts/:postId', name: 'post-detail', component: () => import('../views/post/PostDetailView.vue') },

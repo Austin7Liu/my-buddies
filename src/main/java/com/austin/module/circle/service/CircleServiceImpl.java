@@ -58,6 +58,16 @@ public class CircleServiceImpl implements CircleService {
         return value;
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public Circle getOwned(long creatorId, long circleId) {
+        Circle circle = requireCircle(circleId);
+        if (!circle.getCreatorAccountId().equals(creatorId)) {
+            throw new ForbiddenException("只能查看自己创建的圈子管理信息");
+        }
+        return circle;
+    }
+
     @Override @Transactional(readOnly = true)
     public IPage<Circle> listMine(long creatorId, long page, long size) {
         return circleMapper.selectPage(new Page<>(page, size), new LambdaQueryWrapper<Circle>()
