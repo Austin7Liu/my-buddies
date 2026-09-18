@@ -62,3 +62,7 @@ export const isAuthenticated = () => Boolean(state.accessToken && state.refreshT
 export const rolesAreLoaded = () => state.rolesLoaded
 export const hasRole = (role) => state.roles.includes(role)
 export const isContentAdmin = () => hasRole('CONTENT_ADMIN') || hasRole('SUPER_ADMIN')
+export const hasAnyRole = (roles) => hasRole('SUPER_ADMIN') || roles.some((role) => hasRole(role))
+export const isAdmin = () => hasAnyRole(['CONTENT_ADMIN', 'RISK_REVIEWER', 'SECURITY_REVIEWER'])
+export const isRiskReviewer = () => hasAnyRole(['RISK_REVIEWER'])
+export const isSuperAdmin = () => hasRole('SUPER_ADMIN')

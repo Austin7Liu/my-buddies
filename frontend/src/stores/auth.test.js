@@ -35,5 +35,18 @@ describe('auth store', () => {
 
     expect(auth.rolesAreLoaded()).toBe(true)
     expect(auth.isContentAdmin()).toBe(true)
+    expect(auth.isRiskReviewer()).toBe(true)
+    expect(auth.isAdmin()).toBe(true)
+    expect(auth.isSuperAdmin()).toBe(true)
+  })
+
+  it('keeps role-specific administrators separated', async () => {
+    const auth = await import('./auth.js')
+    auth.setRoles(['RISK_REVIEWER'])
+
+    expect(auth.isAdmin()).toBe(true)
+    expect(auth.isRiskReviewer()).toBe(true)
+    expect(auth.isContentAdmin()).toBe(false)
+    expect(auth.hasAnyRole(['CONTENT_ADMIN'])).toBe(false)
   })
 })

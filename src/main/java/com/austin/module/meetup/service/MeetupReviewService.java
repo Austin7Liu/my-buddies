@@ -104,6 +104,26 @@ public class MeetupReviewService {
                 .orderByDesc(MeetupReview::getId));
     }
 
+    @Transactional(readOnly = true)
+    public IPage<MeetupReview> listForAdmin(
+            MeetupReviewStatus status,
+            Long meetupId,
+            Long reviewerAccountId,
+            Long revieweeAccountId,
+            Integer rating,
+            long page,
+            long size) {
+        LambdaQueryWrapper<MeetupReview> query = new LambdaQueryWrapper<MeetupReview>()
+                .eq(status != null, MeetupReview::getStatus, status)
+                .eq(meetupId != null, MeetupReview::getMeetupId, meetupId)
+                .eq(reviewerAccountId != null, MeetupReview::getReviewerAccountId, reviewerAccountId)
+                .eq(revieweeAccountId != null, MeetupReview::getRevieweeAccountId, revieweeAccountId)
+                .eq(rating != null, MeetupReview::getRating, rating)
+                .orderByDesc(MeetupReview::getCreatedAt)
+                .orderByDesc(MeetupReview::getId);
+        return reviewMapper.selectPage(new Page<>(page, size), query);
+    }
+
     @Transactional
     public MeetupReview moderate(long operatorId, long reviewId, MeetupReviewStatus target, String reason) {
         if (reason == null || reason.isBlank()) {

@@ -1,6 +1,9 @@
 import http from './http.js'
 
 export const getMyRoles = () => http.get('/admin/me/roles')
+export const getAssignedRoles = (accountId) => http.get(`/admin/accounts/${accountId}/roles`)
+export const grantAdminRole = (accountId, role) => http.put(`/admin/accounts/${accountId}/roles/${role}`)
+export const revokeAdminRole = (accountId, role) => http.delete(`/admin/accounts/${accountId}/roles/${role}`)
 export const listAdminCircles = (status, page = 1, size = 20) => http.get('/admin/circles', { params: { status: status || undefined, page, size } })
 export const approveCircle = (circleId) => http.post(`/admin/circles/${circleId}/approve`)
 export const rejectCircle = (circleId, reason) => http.post(`/admin/circles/${circleId}/reject`, { reason })
@@ -10,6 +13,12 @@ export const approvePost = (postId) => http.post(`/admin/posts/${postId}/approve
 export const rejectPost = (postId, reason) => http.post(`/admin/posts/${postId}/reject`, { reason })
 export const offlinePost = (postId, reason) => http.post(`/admin/posts/${postId}/offline`, { reason })
 export const restorePost = (postId) => http.post(`/admin/posts/${postId}/restore`)
+export const listAdminComments = (filters = {}, page = 1, size = 20) => http.get('/admin/post-comments', { params: { ...filters, page, size } })
+export const hideComment = (commentId, reason) => http.post(`/admin/post-comments/${commentId}/hide`, { reason })
+export const restoreComment = (commentId) => http.post(`/admin/post-comments/${commentId}/restore`)
 export const listAdminMeetups = (status, page = 1, size = 20) => http.get('/admin/meetups', { params: { status: status || undefined, page, size } })
 export const terminateMeetup = (meetupId, reason) => http.post(`/admin/meetups/${meetupId}/terminate`, { reason })
+export const listAdminMeetupReviews = (filters = {}, page = 1, size = 20) => http.get('/admin/meetup-reviews', { params: { ...filters, page, size } })
+export const hideMeetupReview = (reviewId, reason) => http.patch(`/admin/meetup-reviews/${reviewId}/hide`, { reason })
+export const restoreMeetupReview = (reviewId, reason) => http.patch(`/admin/meetup-reviews/${reviewId}/restore`, { reason })
 export const rebuildSearchIndex = () => http.post('/admin/search/reindex', null, { timeout: 120000 })

@@ -25,6 +25,9 @@ import com.austin.module.post.domain.PostCommentStatus;
 import com.austin.module.post.mapper.PostCommentAuditLogMapper;
 import com.austin.module.post.mapper.PostCommentMapper;
 import com.austin.module.risk.service.RiskRestrictionService;
+import com.baomidou.mybatisplus.core.conditions.Wrapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -172,6 +175,21 @@ class PostCommentServiceTests {
         assertThat(result.postId()).isEqualTo(POST_ID);
         assertThat(result.commentId()).isEqualTo(100L);
         assertThat(result.page()).isEqualTo(2L);
+    }
+
+    @Test
+    void listsCommentsForAdminWithPagination() {
+        Page<PostComment> expected = new Page<>(2, 10, 1);
+        expected.setRecords(java.util.List.of(PostComment.builder().id(100L).build()));
+        when(commentMapper.selectPage(any(IPage.class), any(Wrapper.class))).thenReturn(expected);
+
+        IPage<PostComment> result = service.listForAdmin(
+                PostCommentStatus.HIDDEN_BY_ADMIN, POST_ID, COMMENTER_ID, 2, 10);
+
+        assertThat(result.getCurrent()).isEqualTo(2);
+        assertThat(result.getSize()).isEqualTo(10);
+        assertThat(result.getRecords()).hasSize(1);
+        verify(commentMapper).selectPage(any(IPage.class), any(Wrapper.class));
     }
 
     private void allowCommenting(long accountId) {

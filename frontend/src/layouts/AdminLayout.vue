@@ -1,18 +1,26 @@
 <script setup>
+import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { authState } from '../stores/auth.js'
+import { canAccessRoles } from '../utils/adminRole.js'
 
 const router = useRouter()
-const menus = [
-  { to: '/admin', label: '概览' },
-  { to: '/admin/circles', label: 'Circle 审核' },
-  { to: '/admin/posts', label: 'Post 审核' },
-  { to: '/admin/reports', label: '内容举报' },
-  { to: '/admin/appeals', label: '内容申诉' },
-  { to: '/admin/violations', label: '违规记录' },
-  { to: '/admin/meetups', label: 'Meetup 管理' },
-  { to: '/admin/search', label: '搜索索引' },
+const allMenus = [
+  { to: '/admin', label: '概览', roles: [] },
+  { to: '/admin/circles', label: 'Circle 审核', roles: ['CONTENT_ADMIN'] },
+  { to: '/admin/posts', label: 'Post 审核', roles: ['CONTENT_ADMIN'] },
+  { to: '/admin/comments', label: '评论管理', roles: ['CONTENT_ADMIN'] },
+  { to: '/admin/meetup-reviews', label: '活动评价管理', roles: ['CONTENT_ADMIN'] },
+  { to: '/admin/reports', label: '内容举报', roles: ['CONTENT_ADMIN'] },
+  { to: '/admin/appeals', label: '内容申诉', roles: ['CONTENT_ADMIN'] },
+  { to: '/admin/violations', label: '违规记录', roles: ['CONTENT_ADMIN'] },
+  { to: '/admin/catalog', label: '分类与话题', roles: ['CONTENT_ADMIN'] },
+  { to: '/admin/meetups', label: 'Meetup 管理', roles: ['CONTENT_ADMIN'] },
+  { to: '/admin/search', label: '搜索索引', roles: ['CONTENT_ADMIN'] },
+  { to: '/admin/risk', label: '风控限制', roles: ['RISK_REVIEWER'] },
+  { to: '/admin/roles', label: '角色管理', roles: ['SUPER_ADMIN'] },
 ]
+const menus = computed(() => allMenus.filter((menu) => canAccessRoles(authState.roles, menu.roles)))
 </script>
 
 <template>

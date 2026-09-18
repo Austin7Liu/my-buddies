@@ -54,6 +54,22 @@ public class PostCommentService {
     }
 
     @Transactional(readOnly = true)
+    public IPage<PostComment> listForAdmin(
+            PostCommentStatus status,
+            Long postId,
+            Long authorAccountId,
+            long page,
+            long size) {
+        LambdaQueryWrapper<PostComment> query = new LambdaQueryWrapper<PostComment>()
+                .eq(status != null, PostComment::getStatus, status)
+                .eq(postId != null, PostComment::getPostId, postId)
+                .eq(authorAccountId != null, PostComment::getAuthorAccountId, authorAccountId)
+                .orderByDesc(PostComment::getCreatedAt)
+                .orderByDesc(PostComment::getId);
+        return commentMapper.selectPage(new Page<>(page, size), query);
+    }
+
+    @Transactional(readOnly = true)
     public CommentLocation locate(long commentId, long size) {
         PostComment comment = requireComment(commentId);
         postService.getPublic(comment.getPostId());

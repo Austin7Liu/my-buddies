@@ -1,7 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import { isAuthenticated } from '../stores/auth.js'
-import { isContentAdmin, rolesAreLoaded, setRoles } from '../stores/auth.js'
+import { authState, isAdmin, isAuthenticated, rolesAreLoaded, setRoles } from '../stores/auth.js'
 import { getMyRoles } from '../api/admin.js'
+import { canAccessRoles } from '../utils/adminRole.js'
 
 const routes = [
   { path: '/login', name: 'login', component: () => import('../views/auth/LoginView.vue'), meta: { guestOnly: true } },
@@ -9,16 +9,21 @@ const routes = [
   {
     path: '/admin',
     component: () => import('../layouts/AdminLayout.vue'),
-    meta: { requiresAuth: true, requiresContentAdmin: true },
+    meta: { requiresAuth: true, requiresAdmin: true },
     children: [
       { path: '', name: 'admin-dashboard', component: () => import('../views/admin/AdminDashboardView.vue') },
-      { path: 'circles', name: 'admin-circles', component: () => import('../views/admin/CircleModerationView.vue') },
-      { path: 'posts', name: 'admin-posts', component: () => import('../views/admin/PostModerationView.vue') },
-      { path: 'meetups', name: 'admin-meetups', component: () => import('../views/admin/MeetupManagementView.vue') },
-      { path: 'search', name: 'admin-search', component: () => import('../views/admin/SearchManagementView.vue') },
-      { path: 'reports', name: 'admin-reports', component: () => import('../views/admin/ContentReportManagementView.vue') },
-      { path: 'appeals', name: 'admin-appeals', component: () => import('../views/admin/ContentAppealManagementView.vue') },
-      { path: 'violations', name: 'admin-violations', component: () => import('../views/admin/ContentViolationManagementView.vue') },
+      { path: 'circles', name: 'admin-circles', component: () => import('../views/admin/CircleModerationView.vue'), meta: { requiredRoles: ['CONTENT_ADMIN'] } },
+      { path: 'posts', name: 'admin-posts', component: () => import('../views/admin/PostModerationView.vue'), meta: { requiredRoles: ['CONTENT_ADMIN'] } },
+      { path: 'comments', name: 'admin-comments', component: () => import('../views/admin/CommentManagementView.vue'), meta: { requiredRoles: ['CONTENT_ADMIN'] } },
+      { path: 'meetup-reviews', name: 'admin-meetup-reviews', component: () => import('../views/admin/MeetupReviewManagementView.vue'), meta: { requiredRoles: ['CONTENT_ADMIN'] } },
+      { path: 'meetups', name: 'admin-meetups', component: () => import('../views/admin/MeetupManagementView.vue'), meta: { requiredRoles: ['CONTENT_ADMIN'] } },
+      { path: 'search', name: 'admin-search', component: () => import('../views/admin/SearchManagementView.vue'), meta: { requiredRoles: ['CONTENT_ADMIN'] } },
+      { path: 'reports', name: 'admin-reports', component: () => import('../views/admin/ContentReportManagementView.vue'), meta: { requiredRoles: ['CONTENT_ADMIN'] } },
+      { path: 'appeals', name: 'admin-appeals', component: () => import('../views/admin/ContentAppealManagementView.vue'), meta: { requiredRoles: ['CONTENT_ADMIN'] } },
+      { path: 'violations', name: 'admin-violations', component: () => import('../views/admin/ContentViolationManagementView.vue'), meta: { requiredRoles: ['CONTENT_ADMIN'] } },
+      { path: 'catalog', name: 'admin-catalog', component: () => import('../views/admin/CatalogManagementView.vue'), meta: { requiredRoles: ['CONTENT_ADMIN'] } },
+      { path: 'risk', name: 'admin-risk', component: () => import('../views/admin/RiskRestrictionManagementView.vue'), meta: { requiredRoles: ['RISK_REVIEWER'] } },
+      { path: 'roles', name: 'admin-roles', component: () => import('../views/admin/AdminRoleManagementView.vue'), meta: { requiredRoles: ['SUPER_ADMIN'] } },
     ],
   },
   {
@@ -58,11 +63,13 @@ router.beforeEach(async (to) => {
   if (to.matched.some((record) => record.meta.requiresAuth) && !isAuthenticated()) {
     return { name: 'login', query: { redirect: to.fullPath } }
   }
-  if (to.matched.some((record) => record.meta.requiresContentAdmin)) {
+  if (to.matched.some((record) => record.meta.requiresAdmin)) {
     if (!rolesAreLoaded()) {
       try { setRoles((await getMyRoles()).data.roles) } catch { return { name: 'forbidden' } }
     }
-    if (!isContentAdmin()) return { name: 'forbidden' }
+    if (!isAdmin()) return { name: 'forbidden' }
+    const requiredRoles = to.matched.flatMap((record) => record.meta.requiredRoles ?? [])
+    if (!canAccessRoles(authState.roles, requiredRoles)) return { name: 'forbidden' }
   }
   if (to.meta.guestOnly && isAuthenticated()) return { name: 'home' }
   return true
