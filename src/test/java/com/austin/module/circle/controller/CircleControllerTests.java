@@ -95,6 +95,14 @@ class CircleControllerTests {
     void rejectedCircleCanBeEditedAndResubmitted() throws Exception {
         createCircle().andExpect(status().isOk());
         Circle circle = findCreatorCircle();
+        mockMvc.perform(get("/api/v1/circles/{circleId}/management", circle.getId())
+                        .with(user(creator.getId().toString())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.id").value(circle.getId()))
+                .andExpect(jsonPath("$.data.status").value("PENDING_REVIEW"));
+        mockMvc.perform(get("/api/v1/circles/{circleId}/management", circle.getId())
+                        .with(user(reviewer.getId().toString())))
+                .andExpect(status().isForbidden());
         mockMvc.perform(post("/api/v1/admin/circles/{circleId}/reject", circle.getId())
                         .with(user(reviewer.getId().toString()).roles("CONTENT_ADMIN"))
                         .contentType(MediaType.APPLICATION_JSON).content("{\"reason\":\"名称需要更具体\"}"))

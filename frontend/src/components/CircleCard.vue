@@ -1,9 +1,9 @@
 <script setup>
-defineProps({ circle: { type: Object, required: true }, showStatus: Boolean })
+defineProps({ circle: { type: Object, required: true }, showStatus: Boolean, manage: Boolean })
 </script>
 
 <template>
-  <RouterLink :to="`/circles/${circle.id}`" class="content-card circle-card">
+  <RouterLink :to="manage && circle.status !== 'APPROVED' ? `/circles/${circle.id}/edit` : `/circles/${circle.id}`" class="content-card circle-card">
     <div class="card-meta">
       <span>{{ circle.city }}{{ circle.district ? ` · ${circle.district}` : '' }}</span>
       <el-tag v-if="showStatus" size="small" effect="plain">{{ circle.status }}</el-tag>
