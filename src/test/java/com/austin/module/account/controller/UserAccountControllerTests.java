@@ -74,4 +74,30 @@ class UserAccountControllerTests {
                         .with(user("999")))
                 .andExpect(status().isForbidden());
     }
+
+    @Test
+    void currentAccountCanRequestAndRevokeCancellation() throws Exception {
+        UserAccount account = userAccountService.create("13900139002");
+        String accountId = Long.toString(account.getId());
+
+        mockMvc.perform(post("/api/v1/accounts/me/cancellation").with(user(accountId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.accountStatus").value("CANCEL_PENDING"))
+                .andExpect(jsonPath("$.data.cancellationEffectiveAt").isNotEmpty());
+
+        mockMvc.perform(get("/api/v1/accounts/me").with(user(accountId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.accountStatus").value("CANCEL_PENDING"));
+
+        mockMvc.perform(post("/api/v1/accounts/me/cancellation/revoke").with(user(accountId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.accountStatus").value("ACTIVE"))
+                .andExpect(jsonPath("$.data.cancellationEffectiveAt").doesNotExist());
+    }
+
+    @Test
+    void rejectsUnauthenticatedCancellation() throws Exception {
+        mockMvc.perform(post("/api/v1/accounts/me/cancellation"))
+                .andExpect(status().isUnauthorized());
+    }
 }

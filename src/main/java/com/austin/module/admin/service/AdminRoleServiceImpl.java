@@ -44,6 +44,9 @@ public class AdminRoleServiceImpl implements AdminRoleService {
     @Override
     @Transactional(readOnly = true)
     public Set<AdminRoleCode> findEffectiveRoles(long accountId) {
+        if (userAccountService.getById(accountId).getAccountStatus() != AccountStatus.ACTIVE) {
+            return Set.of();
+        }
         Set<AdminRoleCode> roles = findAssignedRoles(accountId);
         if (!roles.contains(AdminRoleCode.SUPER_ADMIN)) {
             return roles;

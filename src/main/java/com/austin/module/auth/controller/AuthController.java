@@ -2,6 +2,7 @@ package com.austin.module.auth.controller;
 
 import com.austin.common.exception.UnauthorizedException;
 import com.austin.common.model.ApiResponse;
+import com.austin.module.account.config.AccountProperties;
 import com.austin.module.auth.controller.request.LogoutRequest;
 import com.austin.module.auth.controller.request.RefreshTokenRequest;
 import com.austin.module.auth.controller.request.SendSmsCodeRequest;
@@ -28,6 +29,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class AuthController {
 
     private final AuthService authService;
+    private final AccountProperties accountProperties;
 
     @PostMapping("/sms-codes")
     public ResponseEntity<ApiResponse<SmsCodeResponse>> sendSmsCode(
@@ -40,7 +42,8 @@ public class AuthController {
     @PostMapping("/token")
     public ApiResponse<LoginResponse> login(@Valid @RequestBody SmsLoginRequest request) {
         return ApiResponse.success(LoginResponse.from(
-                authService.loginOrRegister(request.phone(), request.code())));
+                authService.loginOrRegister(request.phone(), request.code()),
+                accountProperties.cancellationCoolingOffPeriod()));
     }
 
     @PostMapping("/token/refresh")

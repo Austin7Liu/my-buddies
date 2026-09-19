@@ -51,6 +51,7 @@ app:
     lock-duration: 5m
   account:
     cancellation-cooling-off-period: 7d
+    cancellation-poll-delay: 1h
   identity:
     fingerprint-secret: ${IDENTITY_FINGERPRINT_SECRET:}
     minimum-age: 18

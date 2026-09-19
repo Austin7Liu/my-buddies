@@ -26,6 +26,9 @@ class UserAccountServiceTests {
     @Autowired
     private UserAccountMapper userAccountMapper;
 
+    @Autowired
+    private AccountCancellationProcessor cancellationProcessor;
+
     @Test
     void createsActiveAccount() {
         UserAccount account = userAccountService.create("13800138000");
@@ -75,5 +78,21 @@ class UserAccountServiceTests {
         assertThat(cancelled.getCancelledAt()).isNotNull();
 
         assertThat(userAccountService.create(phone).getAccountStatus()).isEqualTo(AccountStatus.ACTIVE);
+    }
+
+    @Test
+    void scheduledProcessorCompletesOnlyDueAccounts() {
+        UserAccount due = userAccountService.create("13800138004");
+        UserAccount recent = userAccountService.create("13800138005");
+        userAccountService.requestCancellation(due.getId());
+        userAccountService.requestCancellation(recent.getId());
+        userAccountMapper.update(new LambdaUpdateWrapper<UserAccount>()
+                .eq(UserAccount::getId, due.getId())
+                .set(UserAccount::getCancelRequestedAt, LocalDateTime.now().minusDays(8)));
+
+        cancellationProcessor.completeDueAccounts();
+
+        assertThat(userAccountService.getById(due.getId()).getAccountStatus()).isEqualTo(AccountStatus.CANCELLED);
+        assertThat(userAccountService.getById(recent.getId()).getAccountStatus()).isEqualTo(AccountStatus.CANCEL_PENDING);
     }
 }

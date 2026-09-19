@@ -44,6 +44,7 @@ const routes = [
       { path: 'meetups/:meetupId', name: 'meetup-detail', component: () => import('../views/meetup/MeetupDetailView.vue') },
       { path: 'profiles/:accountId', name: 'public-profile', component: () => import('../views/profile/PublicProfileView.vue') },
       { path: 'me/profile', name: 'my-profile', component: () => import('../views/me/MyProfileView.vue'), meta: { requiresAuth: true } },
+      { path: 'me/account', name: 'my-account', component: () => import('../views/me/AccountSettingsView.vue'), meta: { requiresAuth: true } },
       { path: 'me/notifications', name: 'my-notifications', component: () => import('../views/me/NotificationCenterView.vue'), meta: { requiresAuth: true } },
       { path: 'me/reports', name: 'my-reports', component: () => import('../views/me/MyReportsView.vue'), meta: { requiresAuth: true } },
       { path: 'me/appeals/create', name: 'appeal-create', component: () => import('../views/me/CreateAppealView.vue'), meta: { requiresAuth: true } },

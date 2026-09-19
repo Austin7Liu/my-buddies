@@ -91,6 +91,19 @@ class AdminRoleControllerTests {
     }
 
     @Test
+    void pendingCancellationRemovesEffectiveAdminRoles() {
+        userAccountService.requestCancellation(superAdmin.getId());
+
+        assertThat(adminRoleService.findAssignedRoles(superAdmin.getId()))
+                .contains(AdminRoleCode.SUPER_ADMIN);
+        assertThat(adminRoleService.findEffectiveRoles(superAdmin.getId())).isEmpty();
+
+        userAccountService.revokeCancellation(superAdmin.getId());
+        assertThat(adminRoleService.findEffectiveRoles(superAdmin.getId()))
+                .contains(AdminRoleCode.SUPER_ADMIN);
+    }
+
+    @Test
     void cannotRevokeLastSuperAdmin() throws Exception {
         mockMvc.perform(delete("/api/v1/admin/accounts/{accountId}/roles/{role}",
                         superAdmin.getId(), AdminRoleCode.SUPER_ADMIN)
