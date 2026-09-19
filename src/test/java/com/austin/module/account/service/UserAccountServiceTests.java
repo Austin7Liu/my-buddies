@@ -9,6 +9,8 @@ import com.austin.module.account.domain.UserAccount;
 import com.austin.module.account.mapper.UserAccountMapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -94,5 +96,39 @@ class UserAccountServiceTests {
 
         assertThat(userAccountService.getById(due.getId()).getAccountStatus()).isEqualTo(AccountStatus.CANCELLED);
         assertThat(userAccountService.getById(recent.getId()).getAccountStatus()).isEqualTo(AccountStatus.CANCEL_PENDING);
+    }
+
+    @Test
+    void scheduledProcessorContinuesPastFirstBatchWithSameRequestTime() {
+        LocalDateTime requestedAt = LocalDateTime.now().minusDays(8);
+        List<Long> accountIds = new ArrayList<>();
+        for (int index = 0; index < 105; index++) {
+            UserAccount account = userAccountService.create("139" + String.format("%08d", index));
+            userAccountService.requestCancellation(account.getId());
+            userAccountMapper.update(new LambdaUpdateWrapper<UserAccount>()
+                    .eq(UserAccount::getId, account.getId())
+                    .set(UserAccount::getCancelRequestedAt, requestedAt));
+            accountIds.add(account.getId());
+        }
+
+        cancellationProcessor.completeDueAccounts();
+
+        assertThat(accountIds)
+                .allSatisfy(accountId -> assertThat(userAccountService.getById(accountId).getAccountStatus())
+                        .isEqualTo(AccountStatus.CANCELLED));
+    }
+
+    @Test
+    void revokedCancellationCannotBeCompletedByStaleScan() {
+        UserAccount account = userAccountService.create("13800138006");
+        userAccountService.requestCancellation(account.getId());
+        userAccountMapper.update(new LambdaUpdateWrapper<UserAccount>()
+                .eq(UserAccount::getId, account.getId())
+                .set(UserAccount::getCancelRequestedAt, LocalDateTime.now().minusDays(8)));
+        userAccountService.revokeCancellation(account.getId());
+
+        assertThatThrownBy(() -> userAccountService.completeCancellation(account.getId()))
+                .isInstanceOf(ConflictException.class);
+        assertThat(userAccountService.getById(account.getId()).getAccountStatus()).isEqualTo(AccountStatus.ACTIVE);
     }
 }

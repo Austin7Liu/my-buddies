@@ -14,14 +14,9 @@ public interface UserAccountMapper extends BaseMapper<UserAccount> {
     @Select("SELECT * FROM user_account WHERE id = #{id} FOR UPDATE")
     UserAccount selectByIdForUpdate(@Param("id") long id);
 
-    @Select("""
-            SELECT id FROM user_account
-            WHERE account_status = 'CANCEL_PENDING'
-              AND cancel_requested_at <= #{cutoff}
-            ORDER BY cancel_requested_at, id
-            LIMIT #{limit}
-            """)
-    List<Long> selectCancellationDueIds(
+    List<UserAccount> selectCancellationDueAccounts(
             @Param("cutoff") LocalDateTime cutoff,
+            @Param("cursorAt") LocalDateTime cursorAt,
+            @Param("cursorId") Long cursorId,
             @Param("limit") int limit);
 }
