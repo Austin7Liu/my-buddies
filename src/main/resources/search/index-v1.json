@@ -1,9 +1,23 @@
 {
   "settings": {
+    "index.max_ngram_diff": 19,
     "analysis": {
+      "tokenizer": {
+        "my_buddies_partial_tokenizer": {
+          "type": "ngram",
+          "min_gram": 1,
+          "max_gram": 20,
+          "token_chars": ["letter", "digit"]
+        }
+      },
       "analyzer": {
         "my_buddies_chinese": {
           "type": "smartcn"
+        },
+        "my_buddies_partial": {
+          "type": "custom",
+          "tokenizer": "my_buddies_partial_tokenizer",
+          "filter": ["lowercase"]
         }
       }
     }
@@ -14,12 +28,42 @@
       "id": { "type": "keyword" },
       "documentType": { "type": "keyword" },
       "businessId": { "type": "long" },
-      "title": { "type": "text", "analyzer": "my_buddies_chinese" },
+      "title": {
+        "type": "text",
+        "analyzer": "my_buddies_chinese",
+        "fields": {
+          "partial": {
+            "type": "text",
+            "analyzer": "my_buddies_partial",
+            "search_analyzer": "my_buddies_chinese"
+          }
+        }
+      },
       "content": { "type": "text", "analyzer": "my_buddies_chinese" },
       "topicId": { "type": "long" },
-      "topicName": { "type": "text", "analyzer": "my_buddies_chinese" },
+      "topicName": {
+        "type": "text",
+        "analyzer": "my_buddies_chinese",
+        "fields": {
+          "partial": {
+            "type": "text",
+            "analyzer": "my_buddies_partial",
+            "search_analyzer": "my_buddies_chinese"
+          }
+        }
+      },
       "circleId": { "type": "long" },
-      "circleName": { "type": "text", "analyzer": "my_buddies_chinese" },
+      "circleName": {
+        "type": "text",
+        "analyzer": "my_buddies_chinese",
+        "fields": {
+          "partial": {
+            "type": "text",
+            "analyzer": "my_buddies_partial",
+            "search_analyzer": "my_buddies_chinese"
+          }
+        }
+      },
       "creatorAccountId": { "type": "long" },
       "city": { "type": "keyword" },
       "district": { "type": "keyword" },

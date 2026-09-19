@@ -33,6 +33,14 @@ import org.springframework.stereotype.Component;
 public class ElasticsearchSearchProvider implements SearchProvider {
 
     private static final DateTimeFormatter INDEX_SUFFIX = DateTimeFormatter.ofPattern("yyyyMMddHHmmssSSS");
+    static final List<String> SEARCH_FIELDS = List.of(
+            "title^3",
+            "topicName^2",
+            "circleName^2",
+            "content",
+            "title.partial^1.5",
+            "topicName.partial^1.2",
+            "circleName.partial^1.2");
 
     private final ElasticsearchClient client;
     private final SearchProperties properties;
@@ -48,7 +56,7 @@ public class ElasticsearchSearchProvider implements SearchProvider {
                     .query(query -> query.bool(bool -> {
                         bool.must(must -> must.multiMatch(multi -> multi
                                 .query(criteria.keyword())
-                                .fields("title^3", "topicName^2", "circleName^2", "content")));
+                                .fields(SEARCH_FIELDS)));
                         bool.filter(filter -> filter.term(term -> term.field("visible").value(true)));
                         if (criteria.type() != null) {
                             bool.filter(filter -> filter.term(term -> term.field("documentType")
